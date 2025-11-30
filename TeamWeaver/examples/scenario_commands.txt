@@ -1,0 +1,168 @@
+# ============================================================================
+# LM-MIQP Demo - 所有任务场景命令
+# ============================================================================
+# 使用方法：复制对应的命令到终端运行
+# 注意：根据你的环境，可能需要调整模型名称等参数
+# ============================================================================
+
+# ============================================================================
+# 场景 a) Heterogeneous Task Execution（异构任务执行）
+# ============================================================================
+# 测试系统协调不同机器人完成用户请求的能力
+# 评估：任务分配效率、能力利用率、任务完成度
+# ============================================================================
+
+# 版本1：基础探索和收集任务
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Explore Room1 and Room2 to find all objects then collect them and place them on the tables in Room3"
+
+# 版本2：详细的多步骤任务
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Send agents to explore Room1 and Room2 separately to search for objects. Once objects are found navigate to those rooms pick up each object and deliver them to Room3 placing them on the marked positions on the tables"
+
+# 版本3：明确指定房间探索
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Agent 1 should explore Room1. Agent 2 should explore Room2. After finding objects Agent 3 should collect them and place on tables in Room3"
+
+
+# ============================================================================
+# 场景 b) Robust under Error-Prone Conditions（错误条件下的鲁棒性）
+# ============================================================================
+# 测试系统在环境变化时的重规划能力
+# 评估：任务稳定性、重规划次数、任务完成度
+# ============================================================================
+
+# 版本1：顺序探索和收集（模拟障碍物场景）
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="First explore Room1 to find objects. If objects are found immediately collect and deliver them to Room3. Then explore Room2 and collect any objects found there also delivering them to Room3"
+
+# 版本2：考虑障碍物的路径规划
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Explore accessible rooms avoiding obstacles in the hallway. Collect all objects found in Room1 first deliver them to Room3 then explore Room2 and collect objects there"
+
+# 版本3：优先级任务分配
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Prioritize exploring Room1. Collect objects from Room1 and deliver to Room3. After that explore Room2 and collect remaining objects"
+
+
+# ============================================================================
+# 场景 c) Human-Initiated Collaboration（人机协作）
+# ============================================================================
+# 测试系统适应人类意图变化的能力
+# 评估：语义透明度、执行透明度、任务适应性
+# ============================================================================
+
+# 步骤1：初始指令 - 收集所有物体
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Put all the objects on the tables in Room3"
+
+# 步骤2：更新指令 - 只需要一个物体（模拟人类中途改变意图）
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="I only need one object now. Place just one object on the table in Room3 and return the rest to their original locations"
+
+# 版本2：更自然的对话式指令
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Hey please collect all objects and organize them on the tables in Room3"
+
+
+# ============================================================================
+# 其他测试场景
+# ============================================================================
+
+# 场景1：纯探索任务
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Explore all three rooms and report what objects are found in each room"
+
+# 场景2：单步操作任务
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Navigate to Room1 pick up the red object then navigate to Room3 and place it on table_3a"
+
+# 场景3：复杂多步骤协作
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Organize the environment. Collect objects from Room1 move furniture in Room2 and arrange items on tables in Room3"
+
+# 场景4：简单收集任务
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Collect the red object from Room1 and explore all rooms"
+
+# 场景5：多房间导航和操作
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Navigate through all rooms identify all objects and create a plan to organize them efficiently"
+
+# 场景6：指定目标位置
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Find all objects in Room1 and Room2 then move them to the tables in Room3"
+
+# 场景7：探索优先
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="First explore Room1 then Room2 then Room3. Report findings and then collect objects"
+
+# 场景8：协作分工
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  instruction="Divide tasks. One agent explores Room1 another explores Room2 and the third agent collects and organizes found objects"
+
+
+# ============================================================================
+# 带模型参数的命令示例（如果需要指定特定模型）
+# ============================================================================
+
+# 使用moonshot模型
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  llm.model=moonshot-v1-32k \
+  instruction="Explore Room1 and Room2 to find all objects then collect them and place them on the tables in Room3"
+
+# 使用其他模型（根据你的API配置调整）
+python -m habitat_llm.examples.simple_lm_miqp_demo_hydra \
+  --config-name examples/simple_lm_miqp_demo \
+  llm.model=your-model-name \
+  instruction="Put all the objects on the tables in Room3"
+
+
+# ============================================================================
+# 指标说明
+# ============================================================================
+# 运行后会输出以下指标：
+#
+# 【a) Task Execution Metrics】
+#   - SR (Success Rate): 成功率
+#   - PC (Percent Complete): 完成百分比
+#   - SS (Simulation Steps): 仿真时间步数
+#   - PCy (Planning Cycles): 规划周期数
+#
+# 【b) Task Allocation Metrics】
+#   - CU (Capability Utilization): 能力利用率
+#   - TSt (Task Stability): 任务稳定性
+#
+# 【c) Transparency Metrics】
+#   - FA (Factual Accuracy): 事实准确性
+#   - STL (Semantic Transparency): 语义透明度
+#   - STE (Execution Transparency): 执行透明度
+#
+# 【幻觉评估指标】
+#   - Object Existence: 对象存在性
+#   - Action Coherence: 动作连贯性
+#   - Constraint Satisfaction: 约束满足度
+#   - Overall Truthfulness: 整体真实性
+#   - Overall Coherence: 整体连贯性
+#   - Hallucination Score: 幻觉分数（越低越好）
+#   - Reliability Score: 可靠性分数（越高越好）
+# ============================================================================
+
