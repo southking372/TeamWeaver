@@ -1,0 +1,24 @@
+# @package _global_
+
+# 最简单的LM-MIQP规划Demo配置
+# 不需要Habitat仿真，只需要LLM和MIQP求解器
+
+# 任务指令（高级指令，不指定具体agent，让系统通过MIQP自动分配）
+instruction: "Collect the red object from Room1 and explore all rooms"
+
+# LLM配置
+llm:
+  # API key（如果为空，会尝试从planner/api_key.txt读取）
+  api_key: null
+  # LLM服务地址
+  base_url: "https://api.moonshot.cn/v1"
+  # 模型名称
+  model: "moonshot-v1-32k"
+  # 最大token数
+  max_tokens: 1200
+
+# 场景配置（可选，目前使用默认2D场景）
+scene:
+  # 可以在这里添加场景配置
+  pass
+
