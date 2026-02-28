@@ -1,1 +1,3 @@
-
+### Dynamic-TeamWeaver Dataset
+Dynamic-TeamWeaver is a simulation benchmark dataset for dynamic heterogeneous multi-robot collaboration in indoor environments. It extends PARTNR Val-Mini by adding richer dynamic contexts (e.g., longer task sequences, larger team/object scale, and disturbance/recovery cases) to evaluate planning robustness, replanning behavior, and execution reliability. The dataset includes 4 scenario types: Basic Capability (20 trials), Scaled Collaboration (27), Long Sequence (17), and Dynamic Ambiguous (19), covering task compositions such as CSH/CSTH/CSTHE settings used in the paper. 
+Each trial provides a scene setup and a natural-language instruction, and is intended for evaluating both system performance (e.g., Percent Complete, Success Rate, Simulation Steps, Planning/Replan Cycles) and, optionally, allocation/transparency metrics (e.g., capability utilization, task stability, semantic coherence, action consistency, fact accuracy).
