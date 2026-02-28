@@ -1,14 +1,4 @@
-# TeamWeaver
-
-**A Multi-Robot Collaborative Planning Framework**  
-Task allocation + coordination + execution under dynamic constraints.
-
----
-
-- **Planner:** MIQP + LLM-guided reasoning  
-- **Robots:** heterogeneous teams (mobile, manipulator, quadruped, etc.)  
-- **Metrics:** success rate, planning cycles, capability utilization, transparency
-
+# TeamWeaver: Hybrid LLM and Optimization-based Planning with Transparent Constraints in Heterogeneous Multi-Robot Teams
 ## 📋 Overview
 
 TeamWeaver is a multi-robot collaborative task planning framework that integrates Large Language Models (LLMs) with Mixed-Integer Quadratic Programming (MIQP). The framework combines the semantic understanding capabilities of LLMs with the mathematical optimization power of MIQP to enable intelligent task allocation and execution for heterogeneous multi-robot teams in dynamic environments. This project extends the [PARTNR benchmark](https://github.com/facebookresearch/partnr-planner) with our LMs-MIQP hybrid planning algorithm.
