@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="docs/fig1.png" alt="TeamWeaver" width="820"/>
-</p>
-
 # TeamWeaver
 
 **A Multi-Robot Collaborative Planning Framework**  
