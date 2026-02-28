@@ -1,4 +1,17 @@
-# TeamWeaver: Multi-Robot Collaborative Planning Framework
+<p align="center">
+  <img src="docs/fig1.png" alt="TeamWeaver" width="820"/>
+</p>
+
+# TeamWeaver
+
+**A Multi-Robot Collaborative Planning Framework**  
+Task allocation + coordination + execution under dynamic constraints.
+
+---
+
+- **Planner:** MIQP + LLM-guided reasoning  
+- **Robots:** heterogeneous teams (mobile, manipulator, quadruped, etc.)  
+- **Metrics:** success rate, planning cycles, capability utilization, transparency
 
 ## 📋 Overview
 
