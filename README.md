@@ -239,6 +239,8 @@ python scripts/read_results.py <output_dir>/<dataset_name>
 
 The default `output_dir` is `outputs/teamweaver/<timestamp>-<dataset_name>`. This can be overridden using the `paths.results_dir` and `evaluation.output_dir` configuration elements.
 
+![result](docs/result.png)
+
 ## 🙏 Acknowledgments
 
 This project is built upon Meta's Habitat platform and the [PARTNR benchmark](https://github.com/facebookresearch/partnr-planner). We extend the PARTNR framework with our LMs-MIQP hybrid planning algorithm for improved task allocation and execution in heterogeneous multi-robot systems.
