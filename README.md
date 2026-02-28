@@ -239,7 +239,7 @@ python scripts/read_results.py <output_dir>/<dataset_name>
 
 The default `output_dir` is `outputs/teamweaver/<timestamp>-<dataset_name>`. This can be overridden using the `paths.results_dir` and `evaluation.output_dir` configuration elements.
 
-![result](docs/result.png)
+![result](docs/results.png)
 
 ## 🙏 Acknowledgments
 
