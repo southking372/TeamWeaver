@@ -4,6 +4,8 @@
 
 TeamWeaver is a multi-robot collaborative task planning framework that integrates Large Language Models (LLMs) with Mixed-Integer Quadratic Programming (MIQP). The framework combines the semantic understanding capabilities of LLMs with the mathematical optimization power of MIQP to enable intelligent task allocation and execution for heterogeneous multi-robot teams in dynamic environments. This project extends the [PARTNR benchmark](https://github.com/facebookresearch/partnr-planner) with our LMs-MIQP hybrid planning algorithm.
 
+![fig1](docs/fig1.png)
+
 ## ✨ Key Features
 
 - **Hybrid Planning Architecture**: Combines LLM semantic reasoning with MIQP constraint optimization for interpretable and optimal task allocation
