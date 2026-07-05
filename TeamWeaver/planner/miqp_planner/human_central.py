@@ -21,8 +21,7 @@ from habitat_llm.planner.human_modeling.HumanModelingSystem import HumanModeling
 
 global_vars = GlobalVarsManager()
 def initialize_human_modeling():
-    api_key = "REDACTED"
-    tagger = LLMProfessionTagger(api_key=api_key)
+    tagger = LLMProfessionTagger()
     human_system = HumanModelingSystem(tagger, num_humans=1)
     human_descriptions = [
         "经验丰富的操作员，擅长精确控制和快速响应，有多年操作经验"

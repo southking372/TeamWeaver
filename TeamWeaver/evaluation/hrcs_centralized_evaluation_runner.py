@@ -148,7 +148,7 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         return low_level_actions, planner_info
 
     def _initialize_human_modeling(self, human_planner_model):
-        api_key = human_planner_model.get("api_key", "REDACTED")
+        api_key = human_planner_model.get("api_key")
         tagger = LLMProfessionTagger(api_key=api_key)
         self.human_system = HumanModelingSystem(tagger, num_humans=1)
         

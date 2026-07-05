@@ -98,7 +98,8 @@ class PerceptionConnector:
     ):
         self.last_world_state: Dict[str, Any] = {}
         self.llm_client = llm_client
-        api_key_filename = "api_key"
+        if api_key_filename is None:
+            api_key_filename = "api_key"
 
         #  添加任务序列管理, now managed by PhaseManager
         # self.task_execution_phases: List[Dict[str, Any]] = []
@@ -814,20 +815,29 @@ class PerceptionConnector:
                         api_key_filename: Optional[str] = None,
                         llm_base_url: Optional[str] = "https://api.moonshot.cn/v1"):
         """初始化LLM客户端"""
-        if self.llm_client is None and api_key_filename:
-            try:
+        if self.llm_client is not None:
+            return
+        try:
+            api_key = os.environ.get("MOONSHOT_API_KEY")
+            key_source = "MOONSHOT_API_KEY environment variable"
+            if not api_key and api_key_filename:
                 api_key_path = Path(api_key_filename + '.txt')
                 if not api_key_path.exists():
                     api_key_path = Path(api_key_filename)
-
-                #api_key = api_key_path.read_text().strip()
-                self.llm_client = openai.OpenAI(
-                    api_key="REDACTED",
-                    base_url=llm_base_url,
+                if api_key_path.exists():
+                    api_key = api_key_path.read_text().strip()
+                    key_source = f"API key file {api_key_path}"
+            if not api_key:
+                print(
+                    "PerceptionConnector: No API key found. Set MOONSHOT_API_KEY or provide "
+                    f"{api_key_filename}.txt. Task decomposition will not be available."
                 )
-                print(f"PerceptionConnector: LLM client initialized using API key from {api_key_path} and base URL {llm_base_url}")
-            except Exception as e:
-                print(f"Error initializing LLM client in PerceptionConnector: {e}")
-        else:
-            print("PerceptionConnector: LLM client not provided and api_key_filename not specified. Task decomposition will not be available.")
-        return 
+                return
+            self.llm_client = openai.OpenAI(
+                api_key=api_key,
+                base_url=llm_base_url,
+            )
+            print(f"PerceptionConnector: LLM client initialized using {key_source} and base URL {llm_base_url}")
+        except Exception as e:
+            print(f"Error initializing LLM client in PerceptionConnector: {e}")
+        return
