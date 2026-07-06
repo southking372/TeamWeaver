@@ -44,7 +44,7 @@ TeamWeaver is a multi-robot collaborative task planning framework that integrate
 ### Requirements
 
 - Python 3.8+
-- Habitat-Sim (see [PARTNR installation guide](https://github.com/facebookresearch/partnr-planner/blob/main/INSTALLATION.md))
+- Habitat-Sim (see [PARTNR installation](https://github.com/facebookresearch/partnr-planner/blob/main/INSTALLATION.md))
 - PyTorch
 - Supported LLM models (Llama or OpenAI API)
 
@@ -74,7 +74,42 @@ pip install -r requirements.txt
 
 ### Configure LLM
 
-#### Using Llama Models (HuggingFace)
+#### Using VLLM Models (Most Efficiency)
+
+To achieve the best inference performance, we recommend to use the [VLLM](https://github.com/vllm-project/vllm) inference mode.
+
+Init the VLLM env:
+```Bash
+conda create --prefix /path/to/your/vllm python=3.10
+
+conda activate /path/to/your/vllm
+```
+
+Start up the VLLM proc:
+```Bash
+python -m vllm.entrypoints.openai.api_server \
+    --model /path/to/your/model \
+    --served-model-name your-model-name \
+    --port 8000 --trust-remote-code
+```
+
+Then you can execute the habitat-llm proc:
+```Bash
+# This is an example, you should REWRITE in your config! REWRITE! REWRITE!
+python -m habitat_llm.examples.planner_demo \
+    --config-name baselines/EXAMPLE_centralized_zero_shot_react_summary.yaml \ 
+    habitat.dataset.data_path="data/datasets/partnr_episodes/v0_0/val_mini.json.gz" \
+    evaluation.planner.plan_config.llm.inference_mode=vllm \
+    evaluation.planner.plan_config.llm.host=localhost \
+    evaluation.planner.plan_config.llm.port=8000 \
+    evaluation.planner.plan_config.llm.generation_params.engine="your-model-name" \
+    num_proc=4
+```
+
+
+#### Using Llama Models (HF-Mode, default)
+
+> Notice: Llama-3-8B is our default model, but we recommend you to use the new model as Qwen in Instruct mode.
 
 You can use HuggingFace models directly by setting the model path:
 
@@ -93,7 +128,7 @@ python -m teamweaver.examples.planner_demo \
     --config-name baselines/centralized_zero_shot_react_summary.yaml \
     habitat.dataset.data_path="data/datasets/partnr_episodes/v0_0/val_mini.json.gz" \
     evaluation.planner.plan_config.llm.inference_mode=hf \
-    evaluation.planner.plan_config.llm.generation_params.engine="path/to/your/llama/model"
+    evaluation.planner.plan_config.llm.generation_params.engine="path/to/your/model"
 ```
 
 #### Using OpenAI API

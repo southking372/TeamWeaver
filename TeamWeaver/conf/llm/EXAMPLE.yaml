@@ -1,0 +1,33 @@
+llm:
+  _target_    : habitat_llm.llm.Llama 
+  _partial_   : True
+
+host          : ""
+port          : 4449
+serverdir     : ""
+
+# Use Hugging Face local inference mode
+inference_mode          : hf
+
+# Qwen 2.5 / ChatML format tags
+# Note: The ending \n is important for keeping the format tidy
+system_tag : "<|im_start|>system\n"
+user_tag : "<|im_start|>user\n"
+assistant_tag : "<|im_start|>assistant\n"
+eot_tag : "<|im_end|>\n"
+
+generation_params:
+  # HARDCODE here, show the model place
+  engine          : "/path/to/your/model"
+
+  prompt        : ''
+  max_tokens    : 1024  # Increase the generation length, prevent truncation
+  temperature   : 0.0   # 0.0 means greedy decoding, the result is more stable
+  n             : 1
+  best_of       : 1
+  stop          : '\n'
+  batch_response: False
+  do_sample     : False
+  repetition_penalty : 1.1 
+  top_k         : 50
+  top_p         : 1.0
