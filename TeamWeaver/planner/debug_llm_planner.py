@@ -49,6 +49,7 @@ from habitat_llm.planner.HRCS.plan_module.prompt_builder import PromptBuilder
 from habitat_llm.planner.HRCS.plan_module.task_helper import TaskHelper
 from habitat_llm.planner.HRCS.plan_module.feedback_manager import FeedbackManager
 from habitat_llm.planner.HRCS.plan_module.execution_manager import ExecutionManager
+from habitat_llm.planner.HRCS.analysis.coherence_semantic_entropy import CoherenceAnalyzer
 
 
 class LLMPlanner(Planner):
@@ -125,6 +126,8 @@ class LLMPlanner(Planner):
         self.execution_manager.reset()
         self.prompt_builder.reset()
 
+        self.consecutive_wait_count = 0
+        self.first_ex = [0] * 300
         # Reset agents
         for agent in self._agents:
             agent.reset()
@@ -246,6 +249,8 @@ class LLMPlanner(Planner):
         self.action_manager = ActionManager(self.actions_parser)
         self.feedback_manager = FeedbackManager()
         self.execution_manager = ExecutionManager()
+        # Coherence & transparency analyzer
+        self.coherence_analyzer = CoherenceAnalyzer()
 
         # save agent observations to get feedback on skill execution
         self.latest_agent_response = {}
@@ -746,13 +751,13 @@ class LLMPlanner(Planner):
         world_graph: Dict[int, "WorldGraph"],
     ) -> str:
         """
-        重新规划：集成任务分解、MIQP优化和序列化执行、支持阶段性任务执行和动态T矩阵生成
+        Replan: task decomposition, MIQP optimization, sequenced execution, phased tasks, dynamic T matrix
         
         Returns:
-            llm_response: LLM生成的响应字符串
+            llm_response: LLM-generated responsestring
         """
         print("\n" + "="*80)
-        print("🚀 开始 MIQP Enhanced Plan")
+        print("🚀 Starting MIQP Enhanced Plan")
         print("="*80)
         
         t = 0.0
@@ -781,11 +786,11 @@ class LLMPlanner(Planner):
         print(f"[Step 3/12] Decomposing task with sequencing...")
         try:
             llm_decompose_config = {
-                "gpt_version": "moonshot-v1-32k",
-                "max_tokens": 1200,
+                "gpt_version": "moonshot-v1-128k",
+                "max_tokens": 1800,
             }
             
-            # 检查是否是首次分解，还是只需要获取当前阶段
+            # Check if first decomposition or only need current phase
             if not self.perception_connector.phase_manager.task_execution_phases:
                 try:
                     structured_subtasks, execution_phases = self.perception_connector.structured_decompose_task_with_sequencing(
@@ -802,14 +807,14 @@ class LLMPlanner(Planner):
                     print(f"[WARNING] Structured decomposition failed: {decompose_error}, using fallback")
                     raise decompose_error
             else:
-                # 继续执行：检查当前阶段状态
+                # Continue: check current phase status
                 current_phase = self.perception_connector.get_current_phase_tasks()
                 if current_phase:
                     print(f"[DEBUG] Continuing execution: Phase {self.perception_connector.phase_manager.current_phase_index + 1}/{len(self.perception_connector.phase_manager.task_execution_phases)}")
                     print(f"  Current phase tasks: {[t['task_type'] + '→' + t['target'] for t in current_phase['tasks']]}")
                 else:
                     print(f"[DEBUG] All phases completed!")
-                    return "Final Thought: Exit!"
+                    return "Final Thought: task is complete, Exit!"
 
         except Exception as e:
             print(f"[ERROR] Sequenced task decomposition failed: {e}, using fallback")
@@ -823,10 +828,15 @@ class LLMPlanner(Planner):
 
         # === Step 4: Get Current Phase Tasks ===
         print(f"[Step 4/12] Getting and enriching current phase tasks...")
+        if (self.perception_connector.phase_manager.task_execution_phases and
+                self.perception_connector.phase_manager.current_phase_index >= len(self.perception_connector.phase_manager.task_execution_phases)):
+            print(f"[INFO] All phases completed. Mission successful. Signaling exit.")
+            return "Final Thought: task is complete, Exit!"
+            
         current_phase = self.perception_connector.get_enriched_current_phase(world_state)
         if not current_phase:
             print(f"[INFO] No more phases to execute - task completed!")
-            return "Final Thought: Exit!"
+            return "Final Thought: task is complete, Exit!"
 
         current_phase_tasks = current_phase.get('tasks', [])
         print(f"[DEBUG] Current phase {current_phase['phase_id']} has {len(current_phase_tasks)} tasks:")
@@ -898,14 +908,12 @@ class LLMPlanner(Planner):
 
         # === Step 7: MIQP Optimization ===
         print(f"[Step 7/12] Running MIQP optimization for current phase...")
-        # print("====="*10)
-        # print(f"[DEBUG] x: {x}")
-        # print(f"[DEBUG] phase_task_info: {phase_task_info}")
-        # print(f"[DEBUG] self._agents: {self._agents}")
-        # print("====="*10)
         alpha, u, delta, time_to_solve, opt_sol_info = self.miqp_solver_wrapper.task_plan_MIQP_solve_phase_aware(
             x, t, phase_task_info, self._agents
         )
+        # alpha, u, delta, time_to_solve, opt_sol_info = self.miqp_solver_wrapper.task_plan_LP_solve_phase_aware(
+        #     x, t, phase_task_info, self._agents
+        # )
         print("[DEBUG-LYP-v3] MIQP optimization results:")
         print(f"  - Alpha: {alpha}")
         
@@ -931,6 +939,8 @@ class LLMPlanner(Planner):
         # === Step 10: Build Phase-Aware Prompt ===
         print(f"[Step 10/12] Building phase-aware enhanced prompt...")
         try:
+            miqp_guidance = ""
+            global_guidance = ""
             miqp_guidance = self.prompt_builder.build_miqp_guidance_addition(
                 current_phase_tasks,
                 agent_task_assignments,
@@ -946,53 +956,82 @@ class LLMPlanner(Planner):
         # === Step 11: LLM Action Generation (Enhanced with Feedback) ===
         print(f"[Step 11/12] Generating actions via LLM with complete feedback history...")
         try:
+            candidate_responses: List[str] = []
             # 1. Prepare prompt
-            prompt_for_llm = self.prompt_builder.prepare_llm_prompt(self.curr_prompt, miqp_guidance)
+            miqp_guidance = miqp_guidance[:500]
+            #prompt_for_llm = self.prompt_builder.prepare_llm_prompt(self.curr_prompt, miqp_guidance)
+            # prompt_for_llm = self.prompt_builder.prepare_llm_prompt(self.curr_prompt, lp_guidance)
+            prompt_for_llm = self.prompt_builder.prepare_llm_prompt(self.curr_prompt, global_guidance)
+            # prompt_wait = "When last sentence in 'still in progress' and not Failure, then you can keep the last plan till it finished or success up to 2 times. Spatial information is important."
+            prompt_wait = "Take care of objects name and spatial position. Navigate to target before pick or place logic."
+            prompt_miner = self.prompt_builder.prepare_llm_prompt(self.curr_prompt, prompt_wait)
             
-            # Debug info
             if miqp_guidance:
                 print(f"[DEBUG] MIQP guidance injected ({len(miqp_guidance)} chars):")
+                # print(f"[DEBUG] LP-Hungarian guidance injected ({len(miqp_guidance)} chars):")
                 print(f"  {miqp_guidance}")
+            elif global_guidance:
+                print(f"[DEBUG] Global guidance injected ({len(global_guidance)} chars):")
+                print(f"  {global_guidance}")
             else:
                 print(f"[DEBUG] No MIQP guidance to inject")
             
+            raw_response = ""
             # 2. Generate Response
-            if self.planner_config.get("constrained_generation", False):
-                print("[DEBUG-LYP] Now use constrained generation")
-                raw_response = self.llm.generate(
-                    self.curr_prompt,
-                    self.stopword,
-                    generation_args={
-                        "grammar_definition": self.build_response_grammar(
-                            world_graph[self._agents[0].uid]
-                        )
-                    },
-                )
-                compare_response = self.llm.generate(
-                    prompt_for_llm,
-                    self.stopword,
-                    generation_args={
-                        "grammar_definition": self.build_response_grammar(
-                            world_graph[self._agents[0].uid]
-                        )
-                    },
-                )
-                # miqp_response = self.llm.generate(
-                #     miqp_guidance,
-                #     self.stopword,
-                #     generation_args={
-                #         "grammar_definition": self.build_response_grammar(
-                #             world_graph[self._agents[0].uid]
-                #         )
-                #     },
-                # )
-            else:
-                raw_response = self.llm.generate(self.curr_prompt, self.stopword)
+            if (self.replanning_count > 2):
+                if self.planner_config.get("constrained_generation", False):
+                    print("[DEBUG-LYP] Now use constrained generation")
+                    last_raw_response = raw_response
+                    raw_response = self.llm.generate(
+                        self.curr_prompt,
+                        # prompt_miner,
+                        self.stopword,
+                        generation_args={
+                            "grammar_definition": self.build_response_grammar(
+                                world_graph[self._agents[0].uid]
+                            )
+                        },
+                    )
+                else:
+                    last_raw_response = raw_response
+                    raw_response = self.llm.generate(self.curr_prompt, self.stopword)
+                    
             print(f"###################[DEBUG-LYP] raw_response: \n{raw_response}")
-            print(f"###################[DEBUG-LYP] compare_response: \n{compare_response}")
-            # raw_response = compare_response
-            
+            if (self.replanning_count <= 2 or (self.first_ex[self.perception_connector.phase_manager.current_phase_index] == 0 and self.replanning_count < 6 and self.perception_connector.phase_manager.current_phase_index + 1 <= (len(self.perception_connector.phase_manager.task_execution_phases) / 2)) ):
+                self.first_ex[self.perception_connector.phase_manager.current_phase_index] = 1
+                if self.planner_config.get("constrained_generation", False):
+                    compare_response = self.llm.generate(
+                        prompt_for_llm,
+                        self.stopword,
+                        generation_args={
+                            "grammar_definition": self.build_response_grammar(
+                                world_graph[self._agents[0].uid]
+                            )
+                        },
+                    )
+                else:
+                    compare_response = self.llm.generate(prompt_for_llm, self.stopword)
+                last_raw_response = raw_response
+                raw_response = compare_response
+            # elif (self.first_ex[self.perception_connector.phase_manager.current_phase_index] == 0):
+            # # elif (self.replanning_count < 5 and self.perception_connector.phase_manager.current_phase_index + 1 <= (len(self.perception_connector.phase_manager.task_execution_phases) / 2)):
+            #     self.first_ex[self.perception_connector.phase_manager.current_phase_index] = 1
+            #     compare_response = self.llm.generate(
+            #         prompt_miner,
+            #         self.stopword,
+            #         generation_args={
+            #             "grammar_definition": self.build_response_grammar(
+            #                 world_graph[self._agents[0].uid]
+            #             )
+            #         },
+            #     )
+            #     last_raw_response = raw_response
+            #     raw_response = compare_response
+            print(f"###################[DEBUG-LYP-v3] After raw_response: \n{raw_response}")
+            if raw_response:
+                candidate_responses.append(raw_response)
             # 3. Form expression
+            raw_response = self.task_helper._correct_llm_response(raw_response)
             llm_response = self.format_response(raw_response, self.end_expression)
             # print(f"[DEBUG-LYP] Formatted LLM response: \n{llm_response}")
             if not llm_response or llm_response == "Thought:":
@@ -1038,7 +1077,74 @@ class LLMPlanner(Planner):
                 adjusted_actions = self.action_manager.parse_high_level_actions(llm_response, self._agents)
             except:
                 adjusted_actions = {}
-
+        # fallback
+        if adjusted_actions == {} or adjusted_actions == None:
+            raw_response = last_raw_response
+        
+        # === Transparency: Coherence & Fact Accuracy Analysis ===
+        print(f"[Analysis] Transparency: Coherence & Fact Accuracy Analysis")
+        try:
+            # Deduplicate candidates and keep short list
+            cand_set = []
+            for c in candidate_responses:
+                if c and c not in cand_set:
+                    cand_set.append(c)
+            prev_selected_response = None
+            if hasattr(self, "_last_response_info") and isinstance(getattr(self, "_last_response_info"), dict):
+                prev_selected_response = self._last_response_info.get("llm_response", None)
+            full_graph = self.env_interface.full_world_graph
+            all_objs = {o.name: o for o in full_graph.get_all_objects()}
+            all_furn = {f.name: f for f in full_graph.get_all_furnitures()}
+            current_agent_positions = self.get_last_agent_positions_miqp(world_graph)
+            def _entity_pos_by_name(name):
+                e = all_objs.get(name) or all_furn.get(name)
+                return None if e is None else e.get_property("translation")
+            def _distance_agent_to_target(agent_uid, target_name):
+                agent = current_agent_positions.get(agent_uid)
+                tgt = _entity_pos_by_name(target_name)
+                if not agent or not tgt:
+                    return None
+                ax, ay, az = agent.get("position", [None, None, None])
+                tx, ty, tz = tgt
+                if None in (ax, ay, az, tx, ty, tz):
+                    return None
+                dx, dy, dz = ax - tx, ay - ty, az - tz
+                return float((dx*dx + dy*dy + dz*dz) ** 0.5)
+            def _object_parent(name):
+                obj = all_objs.get(name)
+                parent = full_graph.find_furniture_for_object(obj) if obj else None
+                return parent.name if parent else None
+            world_accessors = {
+                "is_known_object": lambda n: n in all_objs,
+                "is_known_furniture": lambda n: n in all_furn,
+                "object_parent": _object_parent,
+                "distance_agent_to_target": _distance_agent_to_target,
+                "is_relation_valid": lambda rel: rel in {"on", "within"},
+                "near_threshold": 1.5,
+            }
+            coherence_report = self.coherence_analyzer.generate_report(
+                candidate_responses=cand_set if cand_set else [llm_response],
+                selected_response=llm_response,
+                prev_selected_response=prev_selected_response,
+                world_state=world_state,
+                world_accessors=world_accessors,
+                miqp_context={
+                    "alpha": alpha,
+                    "phase_task_info": phase_task_info if 'phase_task_info' in locals() else None,
+                    "current_phase": current_phase if 'current_phase' in locals() else None,
+                }
+            )
+            cr = coherence_report.to_dict()
+            # alerts_str = "; ".join(cr.get("alerts", [])) if cr.get("alerts") else "None"
+            print("[Transparency] Coherence/Facts Summary → "
+                  f"H_sem={cr.get('step_semantic_entropy'):.3f}; "
+                  f"Entail(prev→now)={cr.get('transitional_entailment') if cr.get('transitional_entailment') is not None else 'N/A'}; "
+                  f"FactAcc={cr.get('fact_accuracy'):.2f};"
+                #   Alerts={alerts_str}"
+                  )
+        except Exception as e:
+            print(f"[WARNING] Coherence analysis failed: {e}")
+        
         # === Step 13: Update Scenario Parameters ===
         print(f"[Step Feedback] Updating scenario parameters for execution...")
         try:
@@ -1075,7 +1181,8 @@ class LLMPlanner(Planner):
             "current_phase": current_phase,
             "total_phases": len(self.perception_connector.phase_manager.task_execution_phases),
             "llm_response": llm_response,
-            "adjusted_actions": adjusted_actions
+            "adjusted_actions": adjusted_actions,
+            "coherence_report": cr if 'cr' in locals() else None,
         }
 
         print(f"\n[SUCCESS] MIQP Sequential Phase Plan completed!")
@@ -1084,7 +1191,7 @@ class LLMPlanner(Planner):
         print(f"  Optimization: {opt_sol_info}")
         print("="*80)
         
-        # 返回LLM响应
+        # Return LLM response
         return llm_response
 
     def get_next_action(
@@ -1120,6 +1227,9 @@ class LLMPlanner(Planner):
                     agent.uid: self.replan_required for agent in self.agents
                 },
                 "is_done": {agent.uid: self.is_done for agent in self.agents},
+                # "high_level_actions": {
+                #     agent.uid: ("Done", None, None) for agent in self.agents
+                # },
             }
             return {}, planner_info, self.is_done
 
@@ -1183,9 +1293,6 @@ class LLMPlanner(Planner):
                     "replanned": {agent.uid: True for agent in self.agents},
                     "is_done": {agent.uid: self.is_done for agent in self.agents},
                     "thought": {agent.uid: thought for agent in self.agents},
-                    # "high_level_actions": {
-                    #     agent.uid: high_level_actions.get(agent.uid, ("Done", None, None)) for agent in self.agents
-                    # },
                     "high_level_actions": {
                         agent.uid: ("Done", None, None) for agent in self.agents
                     },
@@ -1195,6 +1302,60 @@ class LLMPlanner(Planner):
             high_level_actions = self.actions_parser(
                 self.agents, llm_response, self.params # or current_params
             )
+            
+            if high_level_actions and all(
+                action[0].lower() == "wait"
+                for action in high_level_actions.values()
+            ):
+                if self.check_if_agent_done(llm_response):
+                    print(
+                        "[INFO] All agents are waiting and LLM indicates task is done. Terminating."
+                    )
+                    self.is_done = True
+                else:
+                    self.consecutive_wait_count += 1
+            else:
+                self.consecutive_wait_count = 0
+
+            CONSECUTIVE_WAIT_THRESHOLD = 3
+            if (
+                self.consecutive_wait_count >= CONSECUTIVE_WAIT_THRESHOLD
+                or self.is_done
+            ):
+                if not self.is_done:
+                    print(
+                        f"[WARNING] Detected {self.consecutive_wait_count} consecutive wait states. Terminating."
+                    )
+                    self.is_done = True
+
+                planner_info.update(
+                    {
+                        "print": "Forced termination due to consecutive waits or task completion.",
+                        "prompts": {
+                            agent.uid: self.curr_prompt for agent in self.agents
+                        },
+                        "traces": {agent.uid: self.trace for agent in self.agents},
+                        "replanning_count": {
+                            agent.uid: self.replanning_count
+                            for agent in self.agents
+                        },
+                        "replan_required": {
+                            agent.uid: self.replan_required for agent in self.agents
+                        },
+                        "replanned": {agent.uid: True for agent in self.agents},
+                        "is_done": {
+                            agent.uid: self.is_done for agent in self.agents
+                        },
+                        "thought": {
+                            agent.uid: "Forced termination due to consecutive waits or task completion."
+                            for agent in self.agents
+                        },
+                        "high_level_actions": {
+                            agent.uid: ("Done", None, None) for agent in self.agents
+                        },
+                    }
+                )
+                return {}, planner_info, self.is_done
             
             print(f"\n\n[DEBUG-LYP-v3] Parsed High-Level Actions before done check: {high_level_actions}\n\n")
             # Get low level actions and/or responses
@@ -1218,10 +1379,10 @@ class LLMPlanner(Planner):
             agent.uid: self.replan_required for agent in self.agents
         }
 
-        # 简化的阶段推进检查
+        #Simplified stage-advance inspection
         # if (hasattr(self, 'perception_connector') and self.perception_connector and 
         #     hasattr(self, '_phase_transition_pending') and self._phase_transition_pending):
-        #     # 重置标志
+        #     #reset flag
         #     self._phase_transition_pending = False
         #     self.replan_required = True
         #     print(f"[INFO] **NEW** Phase transition detected, forcing plan on this iteration")
@@ -1247,6 +1408,7 @@ class LLMPlanner(Planner):
             "agent_states": self.get_last_agent_states(),
             "agent_positions": self.get_last_agent_positions(),
             "agent_collisions": self.get_agent_collisions(),
+            "coherence_report": self._last_response_info.get("coherence_report", None),
         })
         
         # if hasattr(self, '_last_response_info') and self._last_response_info:
@@ -1273,9 +1435,11 @@ class LLMPlanner(Planner):
             "task is complete",
             "task is now complete",
             "task is finished",
+            "task is done",
             "task is now finished",
             "task has been completed",
             "all tasks are complete",
+            # "agents have completed",
             "the goal has been achieved",
             "i am done",
             "mission accomplished",
@@ -1286,10 +1450,11 @@ class LLMPlanner(Planner):
             "not finished",
             "unable to complete",
             "in progress",
+            "ensuring the task is completed",
         ]
         if any(phrase in response_lower for phrase in negative_phrases):
             return False
         if any(phrase in response_lower for phrase in positive_phrases):
             return True
         return False
-            
+    

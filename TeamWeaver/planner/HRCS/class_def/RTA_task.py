@@ -1,3 +1,12 @@
+# SYSTEMS AND METHODS FOR TEAMWEAVER
+# Copyright © 2025 HKUST(GZ).
+# Developed by Yapeng Liu and SIIE Lab.
+# HKUST(GZ) SIIE Lab Reference Number XXXX.
+#
+# Licensed under the Non-Commercial Open Source Software License.
+# You may not use this file except in compliance with the License.
+# A copy of the License is included in the root of this repository.
+
 import numpy as np
 import gurobipy as gp
 from gurobipy import GRB
@@ -10,14 +19,15 @@ import sys
 # if task_module_dir not in sys.path:
 #     sys.path.append(task_module_dir)
 
-from habitat_llm.planner.HRCS.class_def.task_utility_normalizer import TaskUtilityNormalizer, TaskPriorityConfig
-from habitat_llm.planner.HRCS.class_def.RTA_task_analyzer import RTA_task_analyzer
+from class_def.task_utility_normalizer import TaskUtilityNormalizer, TaskPriorityConfig
+from class_def.RTA_task_analyzer import RTA_task_analyzer
 
 class RTA:
-    def __init__(self, scenario_params, opt_params, task_priority_config=None):
+    def __init__(self, scenario_params, opt_params, task_priority_config=None, debug_mode=False):
         """
 initializationRTAkind
         """
+        self.debug_mode = debug_mode
         assert all(field in scenario_params for field in ['A', 'Hs', 'T', 'ws', 'robot_dyn', 'tasks']),'Missing scene parameter'
         assert all(field in opt_params for field in ['l', 'kappa', 'gamma', 'n_r_bounds', 'delta_max']),'Missing optimization parameters'
         
@@ -49,6 +59,10 @@ initializationRTAkind
         self.task_name_to_index_ = {
             task['name']: i for i, task in enumerate(self.scenario_params_['tasks']) if task and 'name' in task
         }
+
+    def _log_debug(self, *args, **kwargs):
+        if self.debug_mode:
+            print(*args, **kwargs)
     
     def reset(self):
         """
@@ -91,7 +105,7 @@ initializationRTAkind
         """useCVXPY/GurobisolveMIQPoptimization problem"""
         
         #If debug mode is enabled, use the detailed analysis version
-        if True:
+        if self.debug_mode:
             alpha, u, delta, solve_time, status, constraints_info = self.analyzer.solve_miqp_with_detailed_analysis(x, t)
             return alpha, u, delta, solve_time, status
         
@@ -142,12 +156,12 @@ initializationRTAkind
             time_to_solve_miqp = time.time() - start_time
             
             if problem.status in ["infeasible_or_unbounded", "unknown"]:
-                print(f"[DEBUG] Problem status unclear: {problem.status}, re-solving for precise diagnosis...")
+                self._log_debug(f"[DEBUG] Problem status unclear: {problem.status}, re-solving for precise diagnosis...")
                 try:
-                    problem.solve(solver=cp.GUROBI, verbose=True, reoptimize=True)
+                    problem.solve(solver=cp.GUROBI, verbose=self.debug_mode, reoptimize=True)
                 except Exception as e:
-                    print(f"[DEBUG] Re-solve failed: {e}")
-                    problem.solve(solver=cp.GUROBI, verbose=True, 
+                    self._log_debug(f"[DEBUG] Re-solve failed: {e}")
+                    problem.solve(solver=cp.GUROBI, verbose=self.debug_mode, 
                                 MIPGap=1e-4, 
                                 MIPGapAbs=1e-4,
                                 NumericFocus=2)
@@ -172,7 +186,7 @@ initializationRTAkind
                 opt_sol_info = f"Unbounded: {problem.status}"
             else:
                 print(f"Optimization has not converged, status: {problem.status}")
-                print(f"[DEBUG]Start diagnosing constraints...")
+                self._log_debug(f"[DEBUG]Start diagnosing constraints...")
                 self.analyzer._diagnose_infeasible_constraints()
                 alpha = np.zeros(alpha_dim)
                 u = np.zeros(u_dim)
@@ -302,7 +316,7 @@ Get scaled task function values, gradients, and time derivatives.
         n_c = self.dim_['n_c']
         n_u = self.dim_['n_u']
         
-        print(f"[DEBUG] Building constraints for n_r={n_r}, n_t={n_t}, n_c={n_c}, n_u={n_u}")
+        self._log_debug(f"[DEBUG] Building constraints for n_r={n_r}, n_t={n_t}, n_c={n_c}, n_u={n_u}")
         
         # cbf_constraints = n_r * n_t
         # simplified_delta_alpha_constraints = n_r * min(n_t, 3)
@@ -314,7 +328,7 @@ Get scaled task function values, gradients, and time derivatives.
         total_ineq = capability_constraints + robot_bound_constraints
         total_vars = 2*n_r*n_t + n_r*n_u
         
-        print(f"[DEBUG] Simplified constraint matrix dimensions: {total_ineq} x {total_vars}")
+        self._log_debug(f"[DEBUG] Simplified constraint matrix dimensions: {total_ineq} x {total_vars}")
         # print(f"[DEBUG] Delta-Alpha constraints reduced from {n_r*n_t*(n_t-1)} to {simplified_delta_alpha_constraints}")
         
         A_ineq = np.zeros((total_ineq, total_vars))
@@ -390,7 +404,7 @@ Get scaled task function values, gradients, and time derivatives.
         #             b_ineq[slack_idx] = 0
         
         # ===4. Capability constraints(Feature capability constraints) ===
-        print(f"[DEBUG] Adding capability constraints...")
+        self._log_debug(f"[DEBUG] Adding capability constraints...")
         # cap_start_idx = cbf_constraints + cbf_slack_constraints
         cap_start_idx = 0
         for j in range(n_t):
@@ -403,7 +417,7 @@ Get scaled task function values, gradients, and time derivatives.
                     b_ineq[cap_idx] = -self.scenario_params_['T'][j, c]
         
         # === 5. number of robotsconstraint(Robot count bounds) ===
-        print(f"[DEBUG] Adding robot count constraints...")
+        self._log_debug(f"[DEBUG] Adding robot count constraints...")
         bound_start_idx = cap_start_idx + n_t*n_c
         for j in range(n_t):
             #Maximum number of robots constraint: sum(alpha_rj) <= max_robots_j
@@ -421,7 +435,7 @@ Get scaled task function values, gradients, and time derivatives.
                 b_ineq[min_idx] = -self.opt_params_['n_r_bounds'][j, 0]
         
         # print(f"[DEBUG] Constraints building completed. Final constraint_idx: {constraint_idx}")
-        print(f"[DEBUG] Used constraint indices: {capability_constraints + robot_bound_constraints}")
+        self._log_debug(f"[DEBUG] Used constraint indices: {capability_constraints + robot_bound_constraints}")
         # print(f"[DEBUG] Used constraint indices: {cbf_constraints + cbf_slack_constraints + capability_constraints + robot_bound_constraints}")
         
         #Verify constraint matrix consistency
@@ -441,12 +455,12 @@ Get scaled task function values, gradients, and time derivatives.
                 additional_rows = expected_total - total_ineq
                 A_ineq = np.vstack([A_ineq, np.zeros((additional_rows, total_vars))])
                 b_ineq = np.hstack([b_ineq, np.zeros(additional_rows)])
-                print(f"[DEBUG] Extended constraint matrix to {A_ineq.shape}")
+                self._log_debug(f"[DEBUG] Extended constraint matrix to {A_ineq.shape}")
             elif expected_total < total_ineq:
                 #truncation matrix
                 A_ineq = A_ineq[:expected_total, :]
                 b_ineq = b_ineq[:expected_total]
-                print(f"[DEBUG] Truncated constraint matrix to {A_ineq.shape}")
+                self._log_debug(f"[DEBUG] Truncated constraint matrix to {A_ineq.shape}")
                 
         #Check matrix validity
         if np.any(np.isnan(A_ineq)) or np.any(np.isinf(A_ineq)):
@@ -459,14 +473,14 @@ Get scaled task function values, gradients, and time derivatives.
             print(f"[ERROR] b_eq contains NaN or Inf values!")
         
         #Add an equality constraint: each robot must be assigned to at least one task
-        print(f"[DEBUG] Adding equality constraints (each robot assigned to exactly one task)...")
+        self._log_debug(f"[DEBUG] Adding equality constraints (each robot assigned to exactly one task)...")
         for i in range(n_r):
             for j in range(n_t):
                 A_eq[i, i*n_t + j] = 1
         
-        print(f"[DEBUG] Equality constraint matrix A_eq shape: {A_eq.shape}")
-        print(f"[DEBUG] Equality constraint RHS b_eq: {b_eq}")
-        print(f"[DEBUG] This enforces: each robot must be assigned to exactly one task")
+        self._log_debug(f"[DEBUG] Equality constraint matrix A_eq shape: {A_eq.shape}")
+        self._log_debug(f"[DEBUG] Equality constraint RHS b_eq: {b_eq}")
+        self._log_debug(f"[DEBUG] This enforces: each robot must be assigned to exactly one task")
         
         self.constraints_['A_ineq'] = A_ineq
         self.constraints_['b_ineq'] = b_ineq

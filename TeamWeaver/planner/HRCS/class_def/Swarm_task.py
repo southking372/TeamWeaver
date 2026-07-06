@@ -1,3 +1,12 @@
+# SYSTEMS AND METHODS FOR TEAMWEAVER
+# Copyright © 2025 HKUST(GZ).
+# Developed by Yapeng Liu and SIIE Lab.
+# HKUST(GZ) SIIE Lab Reference Number XXXX.
+#
+# Licensed under the Non-Commercial Open Source Software License.
+# You may not use this file except in compliance with the License.
+# A copy of the License is included in the root of this repository.
+
 import numpy as np
 from scipy.spatial import Voronoi, Delaunay, voronoi_plot_2d
 import matplotlib.pyplot as plt
@@ -7,7 +16,7 @@ import matplotlib.patches as patches
 from scipy.spatial import ConvexHull
 
 from class_def.SingleIntegrator import SingleIntegrator
-from class_def.RTA import RTA
+from class_def.RTA_task import RTA
 
 class Swarm:
     def __init__(self, **kwargs):

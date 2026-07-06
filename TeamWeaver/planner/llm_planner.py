@@ -132,8 +132,6 @@ class LLMPlanner(Planner):
         for agent in self._agents:
             agent.reset()
 
-        print("[DEBUG] LLMPlanner reset completed - all components reset")
-
     def build_tool_grammar(self, world_graph: "WorldGraph") -> str:
         """
         This method builds a grammar that accepts all valid tool calls based a world graph
@@ -442,8 +440,8 @@ class LLMPlanner(Planner):
             position = [0.0, 0.0, 0.0]
             try:
                 position = agent_entity.get_property("translation")
-            except (ValueError, AttributeError) as e:
-                print(f"Warning: Could not get pose properties for agent '{agent_name}'. Using default pose. Error: {str(e)}")
+            except (ValueError, AttributeError):
+                pass
 
             if agent_name in agent_map:
                 agent_uid = agent_map[agent_name].uid
@@ -452,9 +450,8 @@ class LLMPlanner(Planner):
                 try:
                     agent_uid = int(agent_name.split('_')[-1])
                     agent_poses[agent_uid] = {'position': position}
-                    print(f"Warning: Agent '{agent_name}' not found in agent map, but successfully parsed UID {agent_uid}.")
                 except (ValueError, IndexError):
-                    print(f"Warning: Could not determine UID for agent '{agent_name}'. Skipping this agent.")
+                    pass
         return agent_poses
 
     def _setup_replan_state(self, world_graph: Dict[int, "WorldGraph"]) -> Tuple[np.ndarray, Dict[str, Any]]:
@@ -464,7 +461,6 @@ class LLMPlanner(Planner):
         of the replan method.
         """
         # Step 1: Extract World State (including agent poses)
-        # print(f"[Setup] Extracting world state...")
         try:
             if not hasattr(self, 'perception_connector') or self.perception_connector is None:
                 self.perception_connector = PerceptionConnector(api_key_filename="api_key")
@@ -474,7 +470,6 @@ class LLMPlanner(Planner):
             world_state = {'agent_poses': {}, 'object_positions': {}, 'furniture_positions': {}}
 
         # Step 2: Extract Agent States from world_state and format for MIQP
-        # print(f"[Setup] Extracting agent states for MIQP...")
         n_agents = len(self._agents)
         n_states = 3  # [x, y, z]
         x = np.zeros((n_states, n_agents))
@@ -492,7 +487,6 @@ class LLMPlanner(Planner):
                 print(f"[WARNING] Pose info for agent {agent_id} not found. Using default zero state.")
                 x[:, i] = 0.0
         # Step 3: Pre-update Scenario Params
-        # print(f"[Setup] Pre-updating scenario parameters...")
         try:
             if self.miqp_solver_wrapper.scenario_params is not None:
                 self.miqp_solver_wrapper.scenario_params.update_scenario_from_world_state(world_state)
@@ -676,7 +670,6 @@ class LLMPlanner(Planner):
                 self.trace += result
                 print_str += result
             self.curr_prompt += self.planner_config.llm.eot_tag
-            # print(self.curr_prompt)
 
         # Force add thought after every observation
         if self.planner_config.planning_mode.lower() == "cot":
@@ -756,34 +749,22 @@ class LLMPlanner(Planner):
         Returns:
             llm_response: LLM-generated responsestring
         """
-        print("\n" + "="*80)
-        print("🚀 Starting MIQP Enhanced Plan")
-        print("="*80)
-        
         t = 0.0
 
         # === Step 1: Initialize/Update Scenario Parameters ===
-        print(f"[Step 1/12] Setting up MIQP scenario parameters...")
-        # if not self.miqp_solver_wrapper.scenario_params:
         if self.miqp_solver_wrapper.scenario_params == None:
-            self.miqp_solver_wrapper.task_plan_MIQP_set(self._agents)  
+            self.miqp_solver_wrapper.task_plan_MIQP_set(self._agents)
         # === Step 2: SetUp Stage ===
-        print(f"[Step 2/12] Initializing replan state...")
         x, world_state = self._setup_replan_state(world_graph)
-        # world_description = self.desc_world_graph(world_graph)
         # === Step 2.5: Update Agent Resumes with Context ===
-        print(f"[Step 2.5/12] Updating Agent Resumes with latest context...")
         try:
-            # Use the latest agent responses/feedback for updates
             self.task_helper.update_resumes_from_context(
                 world_state, self.latest_agent_response, self.last_high_level_actions
             )
-            # print("[DEBUG] Agent resumes updated successfully.")
         except Exception as e:
             print(f"[WARNING] Failed to update agent resumes: {e}")
 
         # === Step 3: Sequenced Task Decomposition ===
-        print(f"[Step 3/12] Decomposing task with sequencing...")
         try:
             llm_decompose_config = {
                 "gpt_version": "moonshot-v1-128k",
@@ -799,21 +780,14 @@ class LLMPlanner(Planner):
                         llm_decompose_config,
                         max_agents=len(self._agents)
                     )
-                    print(f"[DEBUG] Task decomposed into {len(structured_subtasks)} subtasks across {len(execution_phases)} phases")
-                    
                     self._last_structured_subtasks = structured_subtasks
                     self._last_execution_phases = execution_phases
                 except Exception as decompose_error:
                     print(f"[WARNING] Structured decomposition failed: {decompose_error}, using fallback")
                     raise decompose_error
             else:
-                # Continue: check current phase status
                 current_phase = self.perception_connector.get_current_phase_tasks()
-                if current_phase:
-                    print(f"[DEBUG] Continuing execution: Phase {self.perception_connector.phase_manager.current_phase_index + 1}/{len(self.perception_connector.phase_manager.task_execution_phases)}")
-                    print(f"  Current phase tasks: {[t['task_type'] + '→' + t['target'] for t in current_phase['tasks']]}")
-                else:
-                    print(f"[DEBUG] All phases completed!")
+                if not current_phase:
                     return "Final Thought: task is complete, Exit!"
 
         except Exception as e:
@@ -821,34 +795,22 @@ class LLMPlanner(Planner):
             try:
                 execution_phases = self.task_helper.create_fallback_tasks(instruction, self._agents)
                 self.perception_connector.phase_manager.set_execution_phases(execution_phases)
-                print(f"[DEBUG] Fallback decomposition created {len(execution_phases)} phases")
             except Exception as fallback_error:
                 print(f"[ERROR] Even fallback decomposition failed: {fallback_error}")
                 return "Agent_0_Action: Explore[bedroom_1]\nAgent_1_Action: Wait[]\nAssigned!"
 
         # === Step 4: Get Current Phase Tasks ===
-        print(f"[Step 4/12] Getting and enriching current phase tasks...")
         if (self.perception_connector.phase_manager.task_execution_phases and
                 self.perception_connector.phase_manager.current_phase_index >= len(self.perception_connector.phase_manager.task_execution_phases)):
-            print(f"[INFO] All phases completed. Mission successful. Signaling exit.")
             return "Final Thought: task is complete, Exit!"
-            
+
         current_phase = self.perception_connector.get_enriched_current_phase(world_state)
         if not current_phase:
-            print(f"[INFO] No more phases to execute - task completed!")
             return "Final Thought: task is complete, Exit!"
 
         current_phase_tasks = current_phase.get('tasks', [])
-        print(f"[DEBUG] Current phase {current_phase['phase_id']} has {len(current_phase_tasks)} tasks:")
-        for task in current_phase_tasks:
-            task_info = f"  - {task['task_type']} → {task['target']}"
-            if 'target_pos' in task:
-                pos = task['target_pos']
-                task_info += f" (Pos: [{pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f}])"
-            print(task_info)
 
         # === Step 5: Build Phase-Specific T Matrix ===
-        print(f"[Step 5/12] Building phase-specific T matrix...")
         try:
             if self.miqp_solver_wrapper.scenario_params is not None:
                 phase_t_matrix, active_task_indices, active_task_types = self.perception_connector.build_phase_specific_t_matrix(
@@ -881,7 +843,6 @@ class LLMPlanner(Planner):
             }
 
         # === Step 6: Update Other MIQP Matrices ===
-        print(f"[Step 6/12] Updating other MIQP matrices...")
         try:
             if self.miqp_solver_wrapper.scenario_params is not None and len(current_phase_tasks) > 0:
                 if self.miqp_solver_wrapper.opt_params:
@@ -907,18 +868,11 @@ class LLMPlanner(Planner):
             print(f"[ERROR] MIQP matrices update failed: {e}")
 
         # === Step 7: MIQP Optimization ===
-        print(f"[Step 7/12] Running MIQP optimization for current phase...")
         alpha, u, delta, time_to_solve, opt_sol_info = self.miqp_solver_wrapper.task_plan_MIQP_solve_phase_aware(
             x, t, phase_task_info, self._agents
         )
-        # alpha, u, delta, time_to_solve, opt_sol_info = self.miqp_solver_wrapper.task_plan_LP_solve_phase_aware(
-        #     x, t, phase_task_info, self._agents
-        # )
-        print("[DEBUG-LYP-v3] MIQP optimization results:")
-        print(f"  - Alpha: {alpha}")
-        
+
         # === Step 8: Phase-Specific Task Assignment ===
-        print(f"[Step 8/12] Mapping current phase tasks to agents...")
         agent_task_assignments = self.task_helper.assign_tasks_for_phase(
             current_phase_tasks,
             alpha,
@@ -929,7 +883,6 @@ class LLMPlanner(Planner):
         )
 
         # === Step 9: Apply Intelligent Error Recovery ===
-        print(f"[Step 9/12] Applying intelligent error recovery...")
         agent_task_assignments = self.error_handler.recover_and_log_assignments(
             agent_task_assignments,
             self.last_high_level_actions,
@@ -937,7 +890,6 @@ class LLMPlanner(Planner):
         )
 
         # === Step 10: Build Phase-Aware Prompt ===
-        print(f"[Step 10/12] Building phase-aware enhanced prompt...")
         try:
             miqp_guidance = ""
             global_guidance = ""
@@ -954,37 +906,19 @@ class LLMPlanner(Planner):
             miqp_guidance = ""
 
         # === Step 11: LLM Action Generation (Enhanced with Feedback) ===
-        print(f"[Step 11/12] Generating actions via LLM with complete feedback history...")
         try:
             candidate_responses: List[str] = []
-            # 1. Prepare prompt
             miqp_guidance = miqp_guidance[:500]
-            #prompt_for_llm = self.prompt_builder.prepare_llm_prompt(self.curr_prompt, miqp_guidance)
-            # prompt_for_llm = self.prompt_builder.prepare_llm_prompt(self.curr_prompt, lp_guidance)
             prompt_for_llm = self.prompt_builder.prepare_llm_prompt(self.curr_prompt, global_guidance)
-            # prompt_wait = "When last sentence in 'still in progress' and not Failure, then you can keep the last plan till it finished or success up to 2 times. Spatial information is important."
             prompt_wait = "Take care of objects name and spatial position. Navigate to target before pick or place logic."
-            prompt_miner = self.prompt_builder.prepare_llm_prompt(self.curr_prompt, prompt_wait)
-            
-            if miqp_guidance:
-                print(f"[DEBUG] MIQP guidance injected ({len(miqp_guidance)} chars):")
-                # print(f"[DEBUG] LP-Hungarian guidance injected ({len(miqp_guidance)} chars):")
-                print(f"  {miqp_guidance}")
-            elif global_guidance:
-                print(f"[DEBUG] Global guidance injected ({len(global_guidance)} chars):")
-                print(f"  {global_guidance}")
-            else:
-                print(f"[DEBUG] No MIQP guidance to inject")
-            
+            self.prompt_builder.prepare_llm_prompt(self.curr_prompt, prompt_wait)
+
             raw_response = ""
-            # 2. Generate Response
             if (self.replanning_count > 2):
                 if self.planner_config.get("constrained_generation", False):
-                    print("[DEBUG-LYP] Now use constrained generation")
                     last_raw_response = raw_response
                     raw_response = self.llm.generate(
                         self.curr_prompt,
-                        # prompt_miner,
                         self.stopword,
                         generation_args={
                             "grammar_definition": self.build_response_grammar(
@@ -995,8 +929,7 @@ class LLMPlanner(Planner):
                 else:
                     last_raw_response = raw_response
                     raw_response = self.llm.generate(self.curr_prompt, self.stopword)
-                    
-            print(f"###################[DEBUG-LYP] raw_response: \n{raw_response}")
+
             if (self.replanning_count <= 2 or (self.first_ex[self.perception_connector.phase_manager.current_phase_index] == 0 and self.replanning_count < 6 and self.perception_connector.phase_manager.current_phase_index + 1 <= (len(self.perception_connector.phase_manager.task_execution_phases) / 2)) ):
                 self.first_ex[self.perception_connector.phase_manager.current_phase_index] = 1
                 if self.planner_config.get("constrained_generation", False):
@@ -1013,27 +946,10 @@ class LLMPlanner(Planner):
                     compare_response = self.llm.generate(prompt_for_llm, self.stopword)
                 last_raw_response = raw_response
                 raw_response = compare_response
-            # elif (self.first_ex[self.perception_connector.phase_manager.current_phase_index] == 0):
-            # # elif (self.replanning_count < 5 and self.perception_connector.phase_manager.current_phase_index + 1 <= (len(self.perception_connector.phase_manager.task_execution_phases) / 2)):
-            #     self.first_ex[self.perception_connector.phase_manager.current_phase_index] = 1
-            #     compare_response = self.llm.generate(
-            #         prompt_miner,
-            #         self.stopword,
-            #         generation_args={
-            #             "grammar_definition": self.build_response_grammar(
-            #                 world_graph[self._agents[0].uid]
-            #             )
-            #         },
-            #     )
-            #     last_raw_response = raw_response
-            #     raw_response = compare_response
-            print(f"###################[DEBUG-LYP-v3] After raw_response: \n{raw_response}")
             if raw_response:
                 candidate_responses.append(raw_response)
-            # 3. Form expression
             raw_response = self.task_helper._correct_llm_response(raw_response)
             llm_response = self.format_response(raw_response, self.end_expression)
-            # print(f"[DEBUG-LYP] Formatted LLM response: \n{llm_response}")
             if not llm_response or llm_response == "Thought:":
                 print(f"[WARNING] Empty LLM response received after formatting.")
                 llm_response = "Agent_0_Action: Wait[]\nAgent_1_Action: Wait[]\nAssigned!"
@@ -1042,7 +958,6 @@ class LLMPlanner(Planner):
             llm_response = "Agent_0_Action: Wait[]\nAgent_1_Action: Wait[]\nAssigned!"
 
         # === Step 12: Parse and Validate High-Level Actions with Closed-Loop Feedback ===
-        print(f"[Step 12/12] Parsing and validating actions with closed-loop feedback...")
         try:
             current_agent_positions = self.get_last_agent_positions_miqp(world_graph)
             validated_actions = self.action_manager.parse_and_validate_actions(
@@ -1062,27 +977,16 @@ class LLMPlanner(Planner):
                 observations,
                 current_agent_positions
             )
-            validation_summary = self.action_manager.get_action_validation_summary()
-            # print(f"[DEBUG] CLOSED-LOOP FEEDBACK Summary:")
-            # print(f"  Total actions processed: {validation_summary['total_actions']}")
-            # print(f"  Corrections made: {validation_summary['corrections_made']}")
-            # print(f"  Correction rate: {validation_summary['correction_rate']:.2%}")
-            print(f"[DEBUG] FINAL Validated actions:")
-            for agent_id, action in adjusted_actions.items():
-                if action and len(action) >= 3:
-                    print(f"  Agent {agent_id}: {action[0]}({action[1]}) → {action[2]}")
         except Exception as e:
             print(f"[ERROR] Closed-loop action validation failed: {e}")
             try:
                 adjusted_actions = self.action_manager.parse_high_level_actions(llm_response, self._agents)
             except:
                 adjusted_actions = {}
-        # fallback
         if adjusted_actions == {} or adjusted_actions == None:
             raw_response = last_raw_response
-        
+
         # === Transparency: Coherence & Fact Accuracy Analysis ===
-        print(f"[Analysis] Transparency: Coherence & Fact Accuracy Analysis")
         try:
             # Deduplicate candidates and keep short list
             cand_set = []
@@ -1135,18 +1039,10 @@ class LLMPlanner(Planner):
                 }
             )
             cr = coherence_report.to_dict()
-            # alerts_str = "; ".join(cr.get("alerts", [])) if cr.get("alerts") else "None"
-            print("[Transparency] Coherence/Facts Summary → "
-                  f"H_sem={cr.get('step_semantic_entropy'):.3f}; "
-                  f"Entail(prev→now)={cr.get('transitional_entailment') if cr.get('transitional_entailment') is not None else 'N/A'}; "
-                  f"FactAcc={cr.get('fact_accuracy'):.2f};"
-                #   Alerts={alerts_str}"
-                  )
         except Exception as e:
             print(f"[WARNING] Coherence analysis failed: {e}")
-        
+
         # === Step 13: Update Scenario Parameters ===
-        print(f"[Step Feedback] Updating scenario parameters for execution...")
         try:
             if self.miqp_solver_wrapper.scenario_params is not None and adjusted_actions:
                 self.execution_manager.update_scenario_for_execution(
@@ -1185,13 +1081,6 @@ class LLMPlanner(Planner):
             "coherence_report": cr if 'cr' in locals() else None,
         }
 
-        print(f"\n[SUCCESS] MIQP Sequential Phase Plan completed!")
-        print(f"  Current Phase: {current_phase['phase_id'] + 1}/{len(self.perception_connector.phase_manager.task_execution_phases)}")
-        print(f"  Phase Tasks: {len(current_phase_tasks)}")
-        print(f"  Optimization: {opt_sol_info}")
-        print("="*80)
-        
-        # Return LLM response
         return llm_response
 
     def get_next_action(
@@ -1308,9 +1197,6 @@ class LLMPlanner(Planner):
                 for action in high_level_actions.values()
             ):
                 if self.check_if_agent_done(llm_response):
-                    print(
-                        "[INFO] All agents are waiting and LLM indicates task is done. Terminating."
-                    )
                     self.is_done = True
                 else:
                     self.consecutive_wait_count += 1
@@ -1356,9 +1242,7 @@ class LLMPlanner(Planner):
                     }
                 )
                 return {}, planner_info, self.is_done
-            
-            print(f"\n\n[DEBUG-LYP-v3] Parsed High-Level Actions before done check: {high_level_actions}\n\n")
-            # Get low level actions and/or responses
+
             low_level_actions, responses = self.process_high_level_actions(
                 high_level_actions, observations
             )
@@ -1378,14 +1262,6 @@ class LLMPlanner(Planner):
         planner_info["replan_required"] = {
             agent.uid: self.replan_required for agent in self.agents
         }
-
-        #Simplified stage-advance inspection
-        # if (hasattr(self, 'perception_connector') and self.perception_connector and 
-        #     hasattr(self, '_phase_transition_pending') and self._phase_transition_pending):
-        #     #reset flag
-        #     self._phase_transition_pending = False
-        #     self.replan_required = True
-        #     print(f"[INFO] **NEW** Phase transition detected, forcing plan on this iteration")
 
         # Check if replanning is required
         # Replanning is required when any of the actions being executed
@@ -1410,14 +1286,6 @@ class LLMPlanner(Planner):
             "agent_collisions": self.get_agent_collisions(),
             "coherence_report": self._last_response_info.get("coherence_report", None),
         })
-        
-        # if hasattr(self, '_last_response_info') and self._last_response_info:
-        #     planner_info["miqp_info"] = {
-        #         "optimization_success": self._last_response_info.get("optimization_success", False),
-        #         "miqp_status": self._last_response_info.get("miqp_status", "UNKNOWN"),
-        #         "current_phase": self._last_response_info.get("current_phase", {}),
-        #         "task_decomposition_success": self._last_response_info.get("task_decomposition_success", False)
-        #     }
 
         return low_level_actions, planner_info, self.is_done
 

@@ -1,3 +1,12 @@
+# SYSTEMS AND METHODS FOR TEAMWEAVER
+# Copyright © 2025 HKUST(GZ).
+# Developed by Yapeng Liu and SIIE Lab.
+# HKUST(GZ) SIIE Lab Reference Number XXXX.
+#
+# Licensed under the Non-Commercial Open Source Software License.
+# You may not use this file except in compliance with the License.
+# A copy of the License is included in the root of this repository.
+
 # task_utils/wait_module.py
 import numpy as np
 import time
@@ -45,6 +54,8 @@ class WaitTask:
         step_threshold = vars_dict.get('wait_step_threshold', 5.0)
         sim_freq = vars_dict.get('sim_freq', 1.0)
         elapsed_time = vars_dict.get('wait_elapsed_time', 0.0)
+        if step_threshold > 0:
+            elapsed_time = elapsed_time % step_threshold
         
         wait_complete = elapsed_time >= step_threshold
         return -1.0 if wait_complete else -10.0

@@ -1,5 +1,14 @@
+# SYSTEMS AND METHODS FOR TEAMWEAVER
+# Copyright © 2025 HKUST(GZ).
+# Developed by Yapeng Liu and SIIE Lab.
+# HKUST(GZ) SIIE Lab Reference Number XXXX.
+#
+# Licensed under the Non-Commercial Open Source Software License.
+# You may not use this file except in compliance with the License.
+# A copy of the License is included in the root of this repository.
+
 import numpy as np
-from habitat_llm.planner.HRCS.task_module.manipulation_module import ManipulationPhase
+from task_module.manipulation_module import ManipulationPhase
 
 class GlobalVarsManager_task:
     def __init__(self):
@@ -28,6 +37,16 @@ Initialize Global Variable Manager - Alignmentscenario_params_task.py13 kinds of
         self.place_dist_thresh = 0.2              #Place distance threshold
         self.pick_action_value = 1.5              #Grab action value
         self.place_action_value = 1.5             #Place action value
+        self.is_holding = False
+        self.holding_robot_id = None
+        self.active_manipulation_robot_id = None  # only one robot drives pick/place FSM
+        self.pick_succeeded = False               # True after Pick completes with object acquired
+        self.place_completed = False              # True after Place completes successfully
+        
+        # Demo task completion flags (Navigate / Explore / Manipulation)
+        self.navi_completed = False
+        self.explore_completed = False
+        self.manipulation_completed = False
         
         #initializationWaitTaskrelated variables
         self.wait_step_threshold = 5.0            #Wait time threshold (seconds)
@@ -85,6 +104,12 @@ Initialize Global Variable Manager - Alignmentscenario_params_task.py13 kinds of
 
     def reset_wait_timer(self):
         self.wait_elapsed_time = 0.0
+
+    def get_effective_wait_time(self):
+        """Elapsed wait time within the current replan cycle (mod 5s threshold)."""
+        if self.wait_step_threshold <= 0:
+            return self.wait_elapsed_time
+        return self.wait_elapsed_time % self.wait_step_threshold
     
     def update_exploration_status(self, robot_positions):
         if self.exploration_targets is None:
@@ -104,70 +129,137 @@ Initialize Global Variable Manager - Alignmentscenario_params_task.py13 kinds of
         if needs_frontier_update:
             self._update_exploration_frontiers()
 
+        if self.exploration_targets:
+            self.explore_completed = all(
+                target.get('explored', False) for target in self.exploration_targets
+            )
+
         return updated_count 
+
+    def update_navi_completion(self, x, task_assignment, navi_task_idx=1):
+        """Mark Navigate complete once any assigned robot reaches the goal."""
+        if self.navi_completed or x is None or self.p_goal is None:
+            return
+        dist_thresh = getattr(self, 'dist_thresh', 0.2)
+        for i, task in enumerate(task_assignment):
+            if task == navi_task_idx:
+                if np.linalg.norm(x[0:2, i] - self.p_goal) < dist_thresh:
+                    self.navi_completed = True
+                    print(f"Navigate task completed: Robot {i} reached goal.")
+                    break
+
+    def all_demo_tasks_completed(self):
+        """Navigate, Explore, and Manipulation (Pick+Place) are all done."""
+        return (
+            self.navi_completed
+            and self.explore_completed
+            and self.manipulation_completed
+        )
+
+    def get_demo_completion_summary(self):
+        return {
+            'navi': self.navi_completed,
+            'explore': self.explore_completed,
+            'manipulation': self.manipulation_completed,
+            'pick_succeeded': self.pick_succeeded,
+            'place_completed': self.place_completed,
+        }
+
+    def get_manipulation_executor(self):
+        """Robot authorized to advance the shared manipulation state machine."""
+        if self.holding_robot_id is not None:
+            return self.holding_robot_id
+        return self.active_manipulation_robot_id
+
+    def select_manipulation_executor(self, candidate_robot_indices):
+        """Pick the single robot that may advance manipulation this step."""
+        if not candidate_robot_indices:
+            return None
+
+        executor = self.get_manipulation_executor()
+        if executor is not None:
+            return executor if executor in candidate_robot_indices else None
+
+        if self.manipulation_phase in (ManipulationPhase.NAV_OBJ, ManipulationPhase.PICK):
+            target = self.target_object_position
+        else:
+            target = self.target_receptacle_position
+
+        if self.x is None or target is None:
+            return candidate_robot_indices[0]
+
+        return min(
+            candidate_robot_indices,
+            key=lambda idx: np.linalg.norm(self.x[0:2, idx] - target),
+        )
 
     def check_and_advance_manipulation_phase(self, robot_idx):
         if self.x is None or robot_idx >= self.x.shape[1]:
             return False
+
+        executor = self.get_manipulation_executor()
+        if executor is not None and executor != robot_idx:
+            return False
+
         robot_pos = self.x[0:2, robot_idx]
         advanced = False
 
         if self.manipulation_phase == ManipulationPhase.NAV_OBJ:
+            if self.is_holding:
+                return False
             dist_to_obj = np.linalg.norm(robot_pos - self.target_object_position)
             if dist_to_obj < self.pick_dist_thresh:
+                self.active_manipulation_robot_id = robot_idx
                 self.manipulation_phase = ManipulationPhase.PICK
-                self.manipulation_phase_timer = 0.0 #Start timing
+                self.manipulation_phase_timer = 0.0
                 print(f"Robot {robot_idx}: Reached object, advancing to PICK phase (fixed duration).")
                 advanced = True
         elif self.manipulation_phase == ManipulationPhase.PICK:
-            #Check if there isPICKwithin range
             dist_to_obj = np.linalg.norm(robot_pos - self.target_object_position)
             if dist_to_obj >= self.pick_dist_thresh:
-                #If not in range, return to navigation phase
                 self.manipulation_phase = ManipulationPhase.NAV_OBJ
                 self.manipulation_phase_timer = 0.0
+                self.active_manipulation_robot_id = None
+                self.pick_succeeded = False
                 print(f"Robot {robot_idx}: Out of PICK range, returning to NAV_OBJ phase.")
                 advanced = True
-            #Check if a fixed duration has been reached
             elif self.manipulation_phase_timer >= self.manipulation_action_fixed_duration:
                 self.manipulation_phase = ManipulationPhase.NAV_REC
-                self.is_holding = True  #Update to holding status
-                self.holding_robot_id = robot_idx #record holderID
-                # self.manipulation_phase_timer = 0.0 #will be inupdate_task_timermedium reset
+                self.is_holding = True
+                self.holding_robot_id = robot_idx
+                self.active_manipulation_robot_id = robot_idx
+                self.pick_succeeded = True
                 print(f"Robot {robot_idx}: PICK finished, holding object. Advancing to NAV_REC.")
                 advanced = True
         elif self.manipulation_phase == ManipulationPhase.NAV_REC:
+            if not (self.pick_succeeded and self.is_holding):
+                return False
             dist_to_rec = np.linalg.norm(robot_pos - self.target_receptacle_position)
             if dist_to_rec < self.place_dist_thresh:
                 self.manipulation_phase = ManipulationPhase.PLACE
-                self.manipulation_phase_timer = 0.0 #Start timing
-                print(f"Robot {robot_idx}: Reached receptacle, advancing to PLACE phase (fixed duration).")
+                self.manipulation_phase_timer = 0.0
+                print(f"Robot {robot_idx}: Reached receptacle, advancing to PLACE phase (Pick succeeded).")
                 advanced = True
-            #Check if out of range
-            # elif dist_to_rec >= self.place_dist_thresh * 1.5:  #Allow a certain buffer distance
-            #     #If it's too far out of scope, return to the navigation phase
-            #     self.manipulation_phase = ManipulationPhase.NAV_REC
-            #     self.manipulation_phase_timer = 0.0
-            #     print(f"Robot {robot_idx}: Out of NAV_REC range, returning to NAV_REC phase.")
-            #     advanced = True
         elif self.manipulation_phase == ManipulationPhase.PLACE:
-            #Check if there isPLACEwithin range
+            if not (self.pick_succeeded and self.is_holding):
+                self.manipulation_phase = ManipulationPhase.NAV_OBJ
+                self.manipulation_phase_timer = 0.0
+                print(f"Robot {robot_idx}: PLACE blocked — Pick not completed or object not held.")
+                return True
             dist_to_rec = np.linalg.norm(robot_pos - self.target_receptacle_position)
             if dist_to_rec >= self.place_dist_thresh:
-                #If not in range, return to navigation phase
                 self.manipulation_phase = ManipulationPhase.NAV_REC
                 self.manipulation_phase_timer = 0.0
                 print(f"Robot {robot_idx}: Out of PLACE range, returning to NAV_REC phase.")
                 advanced = True
-            #Check if a fixed duration has been reached
             elif self.manipulation_phase_timer >= self.manipulation_action_fixed_duration:
-                # manipulationThe cycle is completed and returns to the initial state
                 self.manipulation_phase = ManipulationPhase.NAV_OBJ
-                self.is_holding = False #Update to non-held status
-                self.holding_robot_id = None #clear holderID
-                # self.manipulation_phase_timer = 0.0 #will be inupdate_task_timermedium reset
-                print(f"Robot {robot_idx}: PLACE finished, released object. Manipulation cycle completed.")
+                self.is_holding = False
+                self.holding_robot_id = None
+                self.active_manipulation_robot_id = None
+                self.place_completed = True
+                self.manipulation_completed = True
+                print(f"Robot {robot_idx}: PLACE finished, released object. Manipulation task completed.")
                 advanced = True
-                #Target objects may need to be updated/Location or marking task completed
 
-        return advanced 
+        return advanced

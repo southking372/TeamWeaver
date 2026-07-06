@@ -25,16 +25,13 @@ Initializing a single integrator system
             initial_state (numpy.ndarray):initial state[x, y], the default is[0, 0]
             simulation_time_step (float):simulationtime step, default is 0.1
         """
-        #Set default parameters
         self.w = kwargs.get('width', 1e-1)
         initial_state = kwargs.get('initial_state', np.array([0, 0]))
         self.dt = kwargs.get('simulation_time_step', 1e-1)
         
-        #Set status
         self.x = initial_state[0]
         self.y = initial_state[1]
         
-        #drawing handle
         self.h_r = None
     
     def getPose(self):
@@ -76,7 +73,7 @@ Make a single integratormovementto designated point
         """
         current_pos = np.array([self.x, self.y])
         v = K * (p - current_pos)
-        self.move_single_integrator(v)
+        self.moveSingleIntegrator(v)
     
     def plotRobot(self, *args):
         """
@@ -88,12 +85,10 @@ drawing robot
         if not args:
             args = ([0.5, 0.5, 0.5], {'edgecolor': 'none'})
         
-        #Create a circular representation of the robot
         theta = np.linspace(0, 2*np.pi, 100)
         circle_x = self.x + self.w * np.cos(theta)
         circle_y = self.y + self.w * np.sin(theta)
         
-        #Create or update graphics
         if self.h_r is None:
             if len(args) == 1:
                 color = args[0]
@@ -105,8 +100,7 @@ drawing robot
             plt.figure(1)
             self.h_r = plt.fill(circle_x, circle_y, color=color, **edge_params)
         else:
-            #Update existing graphics
             self.h_r[0].set_xy(np.column_stack([circle_x, circle_y]))
         
         plt.draw()
-        plt.pause(0.001)  #Equivalent todrawnow limitrate
+        plt.pause(0.001)

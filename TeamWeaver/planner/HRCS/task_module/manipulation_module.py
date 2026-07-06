@@ -1,3 +1,12 @@
+# SYSTEMS AND METHODS FOR TEAMWEAVER
+# Copyright © 2025 HKUST(GZ).
+# Developed by Yapeng Liu and SIIE Lab.
+# HKUST(GZ) SIIE Lab Reference Number XXXX.
+#
+# Licensed under the Non-Commercial Open Source Software License.
+# You may not use this file except in compliance with the License.
+# A copy of the License is included in the root of this repository.
+
 # task_utils/manipulation_module.py
 import numpy as np
 from enum import Enum
@@ -11,7 +20,7 @@ class ManipulationPhase(Enum):
     NAV_REC = 2    # Navigate to target location
     PLACE = 3      # place objects
 
-classManipulationTask:
+class ManipulationTask:
     """
     manipulationThe implementation class of the task, corresponding to the rearrange combination skill in partnr-planner.
     This is a composite task that includes the steps of navigating to the object, grabbing, navigating to the target location, and placing it.
@@ -25,7 +34,7 @@ classManipulationTask:
         global_vars_dict = None
         try:
             # Get GlobalVarsManager instance
-            importsys
+            import sys
             global_vars_manager = None
             
             # Search for GlobalVarsManager instances in all modules
@@ -48,7 +57,10 @@ classManipulationTask:
                         'pick_action_value': global_vars_manager.get_var('pick_action_value', 1.0),
                         'place_action_value': global_vars_manager.get_var('place_action_value', 1.0),
                         'is_holding': global_vars_manager.get_var('is_holding', False),
-                        'holding_robot_id': global_vars_manager.get_var('holding_robot_id', None)
+                        'holding_robot_id': global_vars_manager.get_var('holding_robot_id', None),
+                        'active_manipulation_robot_id': global_vars_manager.get_var('active_manipulation_robot_id', None),
+                        'pick_succeeded': global_vars_manager.get_var('pick_succeeded', False),
+                        'place_completed': global_vars_manager.get_var('place_completed', False),
                     }
                 else:
                     print("Global vars manager is missing required methods")
@@ -70,8 +82,16 @@ classManipulationTask:
 
         current_phase = vars_dict.get('manipulation_phase', ManipulationPhase.NAV_OBJ)
         is_holding = vars_dict.get('is_holding', False)
-        holding_robot_id = vars_dict.get('holding_robot_id', None) # Get holder ID
-        nav_attraction_factor = 10.0 # Significantly increase navigation attractiveness
+        holding_robot_id = vars_dict.get('holding_robot_id', None)
+        active_executor = vars_dict.get('active_manipulation_robot_id', None)
+        nav_attraction_factor = 10.0
+
+        if active_executor is not None and active_executor != i and not is_holding:
+            if current_phase in (ManipulationPhase.NAV_OBJ, ManipulationPhase.PICK):
+                return -100.0
+        if active_executor is not None and active_executor != i and is_holding:
+            if current_phase in (ManipulationPhase.NAV_REC, ManipulationPhase.PLACE):
+                return -100.0
         
         # Stage weight coefficient, later stages have higher weights
         phase_weights = {
@@ -103,7 +123,8 @@ classManipulationTask:
                     return -100.0 
         
         if (current_phase == ManipulationPhase.NAV_REC or current_phase == ManipulationPhase.PLACE):
-            if not is_holding or holding_robot_id != i:
+            pick_succeeded = vars_dict.get('pick_succeeded', False)
+            if not pick_succeeded or not is_holding or holding_robot_id != i:
                 return -100.0
 
         if current_phase == ManipulationPhase.NAV_OBJ:
@@ -265,6 +286,16 @@ classManipulationTask:
         current_phase = vars_dict.get('manipulation_phase', ManipulationPhase.NAV_OBJ)
         is_holding = vars_dict.get('is_holding', False)
         holding_robot_id = vars_dict.get('holding_robot_id', None)
+        active_executor = vars_dict.get('active_manipulation_robot_id', None)
+        pick_succeeded = vars_dict.get('pick_succeeded', False)
+
+        executor = holding_robot_id if is_holding else active_executor
+        if executor is not None and executor != i:
+            return x_i
+
+        if current_phase in (ManipulationPhase.NAV_REC, ManipulationPhase.PLACE):
+            if not (pick_succeeded and is_holding and holding_robot_id == i):
+                return x_i
 
         # If other robots are carrying and in NAV_REC or PLACE, the current robot does not move
         if is_holding and holding_robot_id != i and (current_phase == ManipulationPhase.NAV_REC or current_phase == ManipulationPhase.PLACE):

@@ -1,18 +1,27 @@
+# SYSTEMS AND METHODS FOR TEAMWEAVER
+# Copyright © 2025 HKUST(GZ).
+# Developed by Yapeng Liu and SIIE Lab.
+# HKUST(GZ) SIIE Lab Reference Number XXXX.
+#
+# Licensed under the Non-Commercial Open Source Software License.
+# You may not use this file except in compliance with the License.
+# A copy of the License is included in the root of this repository.
+
 # task_utils/task_module/scenario_params_task.py
 import numpy as np
-from habitat_llm.planner.HRCS.task_module.navi_module import NaviTask
-from habitat_llm.planner.HRCS.task_module.explore_module import ExploreTask
-from habitat_llm.planner.HRCS.task_module.manipulation_module import ManipulationTask, ManipulationPhase
-from habitat_llm.planner.HRCS.task_module.wait_module import WaitTask
-from habitat_llm.planner.HRCS.task_module.pick_module import PickTask
-from habitat_llm.planner.HRCS.task_module.place_module import PlaceTask
-from habitat_llm.planner.HRCS.task_module.open_module import OpenTask
-from habitat_llm.planner.HRCS.task_module.close_module import CloseTask
-from habitat_llm.planner.HRCS.task_module.clean_module import CleanTask
-from habitat_llm.planner.HRCS.task_module.state_manipulation_modules import (
+from task_module.navi_module import NaviTask
+from task_module.explore_module import ExploreTask
+from task_module.manipulation_module import ManipulationTask, ManipulationPhase
+from task_module.wait_module import WaitTask
+from task_module.pick_module import PickTask
+from task_module.place_module import PlaceTask
+from task_module.open_module import OpenTask
+from task_module.close_module import CloseTask
+from task_module.clean_module import CleanTask
+from task_module.state_manipulation_modules import (
     FillTask, PourTask, PowerOnTask, PowerOffTask, RearrangeTask
 )
-from habitat_llm.planner.HRCS.sys_module.robot_dynamics_module import RobotDynamicsConfig
+from sys_module.robot_dynamics_module import RobotDynamicsConfig
 
 class ScenarioConfigTask:
     
@@ -72,6 +81,12 @@ class ScenarioConfigTask:
             'manipulation_progress': 0.0,
             'is_holding': False,
             'holding_robot_id': None,
+            'active_manipulation_robot_id': None,
+            'pick_succeeded': False,
+            'place_completed': False,
+            'navi_completed': False,
+            'explore_completed': False,
+            'manipulation_completed': False,
             'manipulation_phase': ManipulationPhase.NAV_OBJ,
             
             # Open/Closerelated variables
@@ -137,8 +152,13 @@ class ScenarioConfigTask:
                     print(f"warn: Agent {i} The characteristic length of ({len(feature_vector)}) with n_f ({self.n_f}) no match")
                     A[:, i] = np.zeros(self.n_f)
             else:
-                # Additional robots use Agent 1's configuration
-                A[:, i] = partnr_agent_features[1] if len(partnr_agent_features) > 1 else np.ones(self.n_f)
+                # Additional robots use Agent 1's configuration (truncate/pad to n_f)
+                fallback = partnr_agent_features[1] if len(partnr_agent_features) > 1 else np.ones(self.n_f)
+                vec = np.asarray(fallback, dtype=float).reshape(-1)
+                if vec.size >= self.n_f:
+                    A[:, i] = vec[:self.n_f]
+                else:
+                    A[:, i] = np.pad(vec, (0, self.n_f - vec.size))
 
         # Mission Capability Requirements Matrix - 13 PARTNR tools mapped to 5 simplified capabilities
         # Task sequence: [Navigate, Explore, Pick, Place, Open, Close, Clean, Fill, Pour, PowerOn, PowerOff, Rearrange, Wait]
