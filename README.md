@@ -69,9 +69,36 @@ cd teamweaver
 pip install -r requirements.txt
 ```
 
-4. **Download datasets**: Download the PARTNR dataset as specified in the PARTNR repository
+4. **Download datasets**: Download the PARTNR dataset as specified in the PARTNR repository, TeamWeaver uses the PARTNR val-mini dataset and our specified dynamic-TeamWeaver dataset
 
 5. **Download skill checkpoints** (if using neural network skills): Refer to the PARTNR installation guide for skill checkpoint downloads
+
+### MIQP Test
+
+Validate the MIQP task allocator (`planner/HRCS/`, RTA + Gurobi) to get known about our MIQP task allocation in python. 
+Details: [`miqp_install.txt`](TeamWeaver/planner/HRCS/miqp_install.txt) (dependencies, Gurobi license, module map), we thanks to the [resilient-allocation](https://github.com/gnotomista/multi_robot_task_allocation) for the allocation swarm organization, and we build the continual dynamic integrating allocation algorithm.
+
+#### 1. MIQP Allocation Setup
+
+```bash
+pip install -r TeamWeaver/planner/HRCS/miqp_install.txt
+```
+
+Activate a [Gurobi license](https://www.gurobi.com/academia/) before running (`grbgetkey`). You can set the python path to use, or take information from [resilient-allocation](https://github.com/gnotomista/multi_robot_task_allocation).
+
+```bash
+# Linux / macOS
+ln -sfn "$(pwd)/TeamWeaver" habitat_llm && export PYTHONPATH="$(pwd):${PYTHONPATH}"
+
+# Windows
+mklink /J habitat_llm TeamWeaver && set PYTHONPATH=%CD%;%PYTHONPATH%
+```
+
+#### 2. Run `newTask.py` to test MIQP Allocation
+
+```bash
+cd TeamWeaver/planner/HRCS && python newTask.py
+```
 
 ### Configure LLM
 
