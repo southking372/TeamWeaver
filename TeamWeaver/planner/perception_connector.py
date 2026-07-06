@@ -1,6 +1,6 @@
 """
-PerceptionConnector模块 - 连接感知系统与MIQP优化系统
-提供世界状态提取、任务分解、矩阵更新等功能
+PerceptionConnector - connects perception system with MIQP optimization
+Provides world state extraction, task decomposition, matrix updates, etc.
 """
 
 from typing import Dict, List, Any, Optional, Tuple, Union, TYPE_CHECKING
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 
 def quaternion_to_yaw(quaternion: List[float]) -> float:
-    """将四元数转换为 Z 轴旋转（偏航角 Yaw）。"""
+    """Convert quaternion to Z-axis rotation (yaw)."""
     quat = np.array(quaternion)
     x, y, z, w = quat
     siny_cosp = 2.0 * (w * z + x * y)
@@ -39,26 +39,26 @@ def quaternion_to_yaw(quaternion: List[float]) -> float:
 
 class PerceptionConnector:
     """
-    连接感知信息（来自 WorldGraph/环境）和任务规划参数（ScenarioConfigTask）。
+    Connects perception (WorldGraph/env) with task planning params (ScenarioConfigTask).
     
-    主要功能:
-    1. 任务分解: 使用LLM将指令分解为结构化子任务
-    2. 世界状态提取: 从环境获取智能体、物体、家具位置信息
-    3. MIQP矩阵更新: 基于Agent配置的能力维度更新优化参数
-    4. 场景参数更新: 根据高级动作更新任务目标和约束
-    5. 任务分配: 基于MIQP优化结果将子任务分配给智能体
-    6.  任务序列化: 将子任务组织为有依赖关系的执行阶段
+    Main features:
+    1. Task decomposition: LLM splits instruction into structured subtasks
+    2. World state extraction: agent, object, furniture positions from environment
+    3. MIQP matrix update: update optimization params from agent capability dimensions
+    4. Scenario param update: update task targets/constraints from high-level actions
+    5. Task assignment: assign subtasks to agents from MIQP optimization
+    6.  Task sequencing: organize subtasks into dependency-ordered execution phases
     
-    能力维度组织:
+    Capability dimensions:
     - Motor Skills: nav, pick, place, open, close, rearrange, explore, wait
     - Object States: power_on, power_off, clean, fill, pour  
     - Perception: find_receptacle, find_object, find_agent_action, find_room
     """
     
-    # --- MIQP矩阵初始化常量 ---
+    # --- MIQP matrix initialization constants ---
     BASE_TASK_CAPABILITY_REQUIREMENTS = np.array([
-        # 任务: [Navigate, Explore, Pick, Place, Open, Close, Clean, Fill, Pour, PowerOn, PowerOff, Rearrange, Wait]
-        # 能力: [移动, 操作, 控制, 液体, 电源]
+        #Task: [Navigate, Explore, Pick, Place, Open, Close, Clean, Fill, Pour, PowerOn, PowerOff, Rearrange, Wait]
+        # capabilities: [movement, manipulation, control, liquid, power]
         [1, 0, 0, 0, 0],  # Navigate
         [1, 0, 0, 0, 0],  # Explore
         [0, 1, 0, 0, 0],  # Pick
@@ -75,19 +75,19 @@ class PerceptionConnector:
     ], dtype=float)
 
     BASE_ROBOT_CAPABILITIES = np.array([
-        [2.0, 1.8],  # 移动
-        [2.0, 1.8],  # 操作
-        [2.0, 1.8],  # 控制
-        [0.0, 1.3],  # 液体
-        [0.0, 1.3]   # 电源
+        [2.0, 1.8],  # movement
+        [2.0, 1.8],  # manipulation
+        [2.0, 1.8],  # control
+        [0.0, 1.3],  # liquid
+        [0.0, 1.3]   # power
     ], dtype=float)
     
     BASE_CAPABILITY_WEIGHTS = [
-        2.0 * np.eye(1),  # 移动
-        2.5 * np.eye(1),  # 操作
-        2.0 * np.eye(1),  # 控制
-        1.8 * np.eye(1),  # 液体
-        1.5 * np.eye(1)   # 电源
+        2.0 * np.eye(1),  # movement
+        2.5 * np.eye(1),  # manipulation
+        2.0 * np.eye(1),  # control
+        1.8 * np.eye(1),  # liquid
+        1.5 * np.eye(1)   # power
     ]
     
     def __init__(
@@ -101,13 +101,13 @@ class PerceptionConnector:
         if api_key_filename is None:
             api_key_filename = "api_key"
 
-        #  添加任务序列管理, now managed by PhaseManager
+        #  Task sequence management (now handled by PhaseManager)
         # self.task_execution_phases: List[Dict[str, Any]] = []
         # self.current_phase_index: int = 0
         self.task_dependency_graph: Dict[str, List[str]] = {}
         self.completed_tasks: List[str] = []
         self.active_tasks: List[str] = []
-        self.phase_t_matrices: Dict[int, np.ndarray] = {} # 阶段性T矩阵缓存
+        self.phase_t_matrices: Dict[int, np.ndarray] = {} # per-phase T matrix cache
         
         self._init_llm_client(llm_client, api_key_filename, llm_base_url)
 
@@ -130,7 +130,7 @@ class PerceptionConnector:
         else:
             self.phase_manager = PhaseManager(self.llm_client)
 
-    # --- 主要公共接口 ---
+    # --- main public API ---
     def _get_world_description_for_prompt(self, env_interface: "EnvironmentInterface") -> str:
         """Generates a detailed world description string for the LLM prompt."""
         full_graph = env_interface.full_world_graph
@@ -146,7 +146,7 @@ class PerceptionConnector:
         
     def extract_world_state(self, env_interface: "EnvironmentInterface") -> Dict[str, Any]:
         """
-        从环境接口提取当前世界状态。
+        Extract current world state from environment interface.
         """
         world_state: Dict[str, Any] = {
             'agent_poses': {},
@@ -155,7 +155,7 @@ class PerceptionConnector:
         }
         full_graph = env_interface.full_world_graph
 
-        # 1. 提取 Agent 位姿
+        # 1. extract agent poses
         agents = full_graph.get_agents()
         for agent_node in agents:
             agent_id = agent_node.name
@@ -169,10 +169,10 @@ class PerceptionConnector:
                     yaw = 0.0
                 world_state['agent_poses'][agent_id] = {'position': pos, 'rotation': rot_quat, 'yaw': yaw}
             except (KeyError, AttributeError, ValueError) as e:
-                print(f"Error: 无法获取 Agent '{agent_id}' 的位姿: {e}")
+                print(f"Error: Could not get agent '{agent_id}'  pose: {e}")
                 world_state['agent_poses'][agent_id] = {'position': [0.0, 0.0, 0.0], 'rotation': [0.0, 0.0, 0.0, 1.0], 'yaw': 0.0}
 
-        # 2. 提取 Object 位置和父物体
+        # 2. extract object positions and parents
         all_objects = full_graph.get_all_objects()
         for obj_node in all_objects:
             obj_name = obj_node.name
@@ -182,10 +182,10 @@ class PerceptionConnector:
                 parent_name = parent_node.name if parent_node else None
                 world_state['object_positions'][obj_name] = {'position': pos, 'parent': parent_name}
             except (KeyError, AttributeError) as e:
-                print(f"Error: 无法获取 Object '{obj_name}' 的位置: {e}")
+                print(f"Error: Could not get object '{obj_name}'  position: {e}")
                 world_state['object_positions'][obj_name] = None
 
-        # 3. 提取 Furniture 位置
+        # 3. extract furniture positions
         all_furniture = full_graph.get_all_furnitures()
         for furn_node in all_furniture:
             furn_name = furn_node.name
@@ -193,8 +193,8 @@ class PerceptionConnector:
                 pos = furn_node.get_property("translation")
                 world_state['furniture_positions'][furn_name] = {'position': pos}
             except (KeyError, AttributeError) as e:
-                print(f"Error: 无法获取 Furniture '{furn_name}' 的位置: {e}")
-                world_state['furniture_positions'][furn_name] = None # 或者一个默认值
+                print(f"Error: Could not get furniture '{furn_name}'  position: {e}")
+                world_state['furniture_positions'][furn_name] = None # or a default value
 
         self.last_world_state = world_state
         # print(f"[DEBUG-LYP-v2]: World state extracted: {world_state}")
@@ -208,17 +208,17 @@ class PerceptionConnector:
         max_agents: int = 2
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """
-        使用LLM将指令分解为带序列依赖的结构化子任务，并组织为执行阶段。
+        Use LLM to decompose instruction into sequenced subtasks and execution phases.
             
         Returns:
             (structured_subtasks, execution_phases)
-            structured_subtasks: 完整的子任务列表
-            execution_phases: 按阶段组织的任务执行计划
+            structured_subtasks: full subtask list
+            execution_phases: phase-organized task execution plan
         """
         if not self.phase_manager or not self.phase_manager.llm_client:
             raise ValueError("PhaseManager or its LLM client not initialized. Cannot decompose task.")
 
-        # 1. 调用PhaseManager进行初步分解
+        # 1. call PhaseManager for initial decomposition
         world_desc_string = self._get_world_description_for_prompt(env_interface)
         current_world_state = self.last_world_state or self.extract_world_state(env_interface)
         agent_info_string = self._get_agent_status_for_prompt(current_world_state)
@@ -232,17 +232,17 @@ class PerceptionConnector:
         
         print(f"DEBUG: Initial LLM decomposition: {len(structured_subtasks)} tasks")
         
-        # 2. 语义增强和阶段组织 (Refactored to TaskDependencyEnhancer)
-        # 同时把任务组织为执行阶段
+        # 2. semantic enhancement and phase organization (TaskDependencyEnhancer)
+        # also organize tasks into execution phases
         enhancer = TaskDependencyEnhancer()
         enhanced_subtasks, execution_phases, dependency_graph = enhancer.structure_and_phase(
             structured_subtasks, max_agents
         )
         
-        # 3. 保存任务依赖关系图
+        # 3. save task dependency graph
         self.task_dependency_graph = dependency_graph
         
-        # 4. 缓存阶段信息并传递给PhaseManager
+        # 4. cache phase info and pass to PhaseManager
         # self.task_execution_phases = execution_phases # No longer stored locally
         # self.current_phase_index = 0 # No longer stored locally
         self.phase_manager.set_execution_phases(execution_phases)
@@ -255,7 +255,7 @@ class PerceptionConnector:
         return enhanced_subtasks, execution_phases
 
     def _clean_task_dependencies(self, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """清理任务依赖关系，移除自循环和无效引用"""
+        """Clean task dependencies; remove self-loops and invalid references"""
         cleaned_tasks = []
         task_ids = {task['task_id'] for task in tasks}
         
@@ -270,12 +270,12 @@ class PerceptionConnector:
         return cleaned_tasks
 
     def get_current_phase_tasks(self) -> Optional[Dict[str, Any]]:
-        """获取当前阶段的任务"""
+        """Get tasks for current phase"""
         return self.phase_manager.get_current_phase_tasks()
 
     def get_enriched_current_phase(self, world_state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
-        获取当前阶段的任务，并用世界状态信息（如目标位置）进行增强。
+        Get tasks for current phase, and augmented with world state information such as target location.
         """
         current_phase = self.phase_manager.get_current_phase_tasks()
         if not current_phase:
@@ -312,11 +312,11 @@ class PerceptionConnector:
         return enriched_phase
 
     def advance_to_next_phase(self) -> bool:
-        """推进到下一个执行阶段"""
+        """Advance to next execution phase"""
         return self.phase_manager.advance_to_next_phase()
 
     def is_current_phase_complete(self, agent_statuses: Dict[int, str]) -> bool:
-        """检查当前阶段是否完成"""
+        """Check whether current phase is complete"""
         return self.phase_manager.is_current_phase_complete(agent_statuses)
 
     def assign_tasks(
@@ -356,7 +356,7 @@ class PerceptionConnector:
         agent_capabilities: Dict[int, List[str]]
     ) -> Dict[int, List[Dict[str, Any]]]:
         """
-        根据MIQP优化结果 (alpha_matrix) 将子任务分配给智能体。
+        Assign subtasks to agents from MIQP optimization result (alpha_matrix).
         """
         num_agents = alpha_matrix.shape[0]
         assignments = {i: [] for i in range(num_agents)}
@@ -366,17 +366,17 @@ class PerceptionConnector:
 
         num_tasks_in_phase = len(subtasks)
         
-        # 验证 alpha_matrix 维度
+        # validate alpha_matrix dimensions
         if alpha_matrix.shape[1] != num_tasks_in_phase:
             print(f"[ERROR] Alpha matrix dimension mismatch in map_subtasks_to_agents. "
                   f"Expected {num_tasks_in_phase} tasks, but matrix has {alpha_matrix.shape[1]} columns. "
                   f"Falling back to heuristic assignment.")
             return self._heuristic_task_assignment(subtasks, agent_capabilities, num_agents)
 
-        # 每一列代表一个任务，找到值最大的agent进行分配
+        # each column is a task; assign to agent with max alpha
         for task_idx in range(num_tasks_in_phase):
             task = subtasks[task_idx]
-            # 找到负责该任务的智能体 (alpha值最大)
+            # find agent responsible for task (max alpha)
             assigned_agent_idx = np.argmax(alpha_matrix[:, task_idx])
             
             task_with_assignment_info = task.copy()
@@ -392,7 +392,7 @@ class PerceptionConnector:
         agent_capabilities: Dict[int, List[str]],
         num_agents: int
     ) -> Dict[int, List[Dict[str, Any]]]:
-        """启发式任务分配，作为MIQP失败时的后备方案"""
+        """Heuristic task assignment as fallback when MIQP fails"""
         assignments = {i: [] for i in range(num_agents)}
         if not tasks:
             return assignments
@@ -405,11 +405,11 @@ class PerceptionConnector:
             ]
             
             if capable_agents:
-                # 分配给负载最轻的有能力的agent
+                # assign to least-loaded capable agent
                 chosen_agent = min(capable_agents, key=lambda aid: len(assignments[aid]))
                 assignments[chosen_agent].append(task)
             else:
-                # 没有agent有能力，分配给负载最轻的agent
+                # if no capable agent, assign to least-loaded agent
                 chosen_agent = min(assignments.keys(), key=lambda aid: len(assignments[aid]))
                 assignments[chosen_agent].append(task)
         
@@ -493,22 +493,22 @@ class PerceptionConnector:
         llm_config: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """
-        使用 LLM 将给定的指令分解为结构化的子任务列表。
+        Use LLM to decompose instruction into structured subtask list.
         """
         if not self.llm_client:
             raise ValueError("LLM client not initialized. Cannot decompose task.")
 
-        # 1. 准备对象和智能体状态信息
+        # 1. prepare object and agent state info
         objects_prompt_string = self._get_objects_string_for_prompt(env_interface)
         current_world_state = self.last_world_state or self.extract_world_state(env_interface)
         agent_info_string = self._get_agent_status_for_prompt(current_world_state)
 
-        # 2. 构建结构化prompt
+        # 2. build structured prompt
         world_state_desc = f"Environment State:\n{objects_prompt_string}\n\nAgent Status:\n{agent_info_string}"
         prompt_template = TaskDecompositionPrompt("task_decomposition", get_llm_config())
         structured_prompt = prompt_template(instruction, world_state_desc)
 
-        # 3. 调用 LLM
+        # 3. call LLM
         messages = [
             {"role": "system", "content": "You are a precise task decomposition assistant. Return only valid JSON."},
             {"role": "user", "content": structured_prompt}
@@ -545,26 +545,26 @@ class PerceptionConnector:
         world_state: Dict[str, Any]
     ) -> None:
         """
-        根据任务分析更新MIQP的参数矩阵(A, T, ws)。
-        此方法现在直接基于规则构建T矩阵，移除了不稳定的LLM矩阵生成。
+        Update MIQP parameter matrices (A, T, ws) from task analysis.
+        Builds T matrix by rules directly; removed unstable LLM matrix generation.
         """
         try:
             print("=== [DEBUG-LYP-v3]: perception_connector.update_miqp_matrices called TODO Update ===")
-            # 1. 直接构建T矩阵
+            # 1. build T matrix directly
             # current_phase_info = {'tasks': structured_subtasks}
             # phase_t_matrix, _, _ = self.build_phase_specific_t_matrix(current_phase_info)
             update_param_value(scenario_config, 'T', phase_t_matrix)
             # print("DEBUG: MIQP matrix 'T' updated successfully via rule-based builder.")
             
-            # 2. 更新A和ws矩阵 (使用默认或简单启发式)
-            # A (能力矩阵) - 通常是固定的，除非有特殊调整
-            # 我们在这里假设它不需要频繁更新，或者使用一个标准值
+            # 2. update A and ws matrices (default or simple heuristics)
+            # A (capability matrix) - usually fixed unless specially adjusted
+            # assumed not to need frequent updates; use standard values
             base_a_matrix = self.BASE_ROBOT_CAPABILITIES.copy()
             update_param_value(scenario_config, 'A', base_a_matrix)
             # print("DEBUG: MIQP matrix 'A' set to default value.")
 
-            # ws (任务权重) - 可以基于任务优先级设置
-            num_total_tasks = 13  # T矩阵的行数
+            # ws (task weights) - may be set from task priority
+            num_total_tasks = 13  # number of rows in T matrix
             task_weights = np.ones(num_total_tasks)
             task_type_to_index = {
                 'Navigate': 0, 'Explore': 1, 'Pick': 2, 'Place': 3,
@@ -575,11 +575,11 @@ class PerceptionConnector:
                 task_type = task.get('task_type')
                 if task_type in task_type_to_index:
                     idx = task_type_to_index[task_type]
-                    # 给予更高优先级的任务更大权重
+                    # give higher weight to higher-priority tasks
                     priority = task.get('priority', 3)
                     task_weights[idx] = 1.0 + (priority - 3) * 0.2
             
-            # 确保ws是一个列表
+            # ensure ws is a list
             update_param_value(scenario_config, 'ws', task_weights.tolist())
             # print("DEBUG: MIQP weights 'ws' updated based on task priorities.")
 
@@ -597,12 +597,12 @@ class PerceptionConnector:
         world_state: Dict[str, Any]
     ) -> None:
         """
-        根据世界状态更新场景参数（例如，是否有智能体持有物体）。
-        此操作在任务分解和规划之前进行。
+        Update scenario params from world state (e.g. whether an agent holds an object).
+thismanipulationPrior to task decomposition and planning.
 
         Args:
-            scenario_config: ScenarioConfigTask 实例或参数字典。
-            world_state: 从 extract_world_state 获取的世界状态字典。
+            scenario_config: ScenarioConfigTask instance or param dict.
+            world_state: world state dict from extract_world_state.
         """
         agent_names = list(world_state.get('agent_poses', {}).keys())
         
@@ -645,8 +645,8 @@ class PerceptionConnector:
         world_state: Dict[str, Any]
     ) -> None:
         """
-        根据当前规划阶段的任务实例，更新scenario_config中的全局任务变量。
-        确保MIQP求解器使用每个任务实例的正确目标位置。
+        Update global task vars in scenario_config for current planning phase task instances.
+        Ensure MIQP solver uses correct target position per task instance.
         """
         if not hasattr(scenario_config, 'update_global_task_var'):
             print("[WARNING] scenario_config object does not support update_global_task_var. Skipping phase execution update.")
@@ -654,7 +654,7 @@ class PerceptionConnector:
 
         print("[DEBUG] Updating global task variables for the current phase execution...")
 
-        # 定义每种任务类型需要更新的全局变量及其在任务字典中的来源键
+        # Define global vars to update per task type and source keys in task dict
         var_map = {
             'Navigate':  {'p_goal': 'target'},
             'Pick':      {'target_object_position': 'target'},
@@ -668,24 +668,24 @@ class PerceptionConnector:
             'PowerOff':  {'target_device_position': 'target'},
             'Rearrange': {
                 'target_object_position': 'target',
-                'target_receptacle_position': 'target_location'  # 假设LLM分解会提供 target_location
+                'target_receptacle_position': 'target_location'  # assume LLM decomposition provides target_location
             }
         }
         
-        # 遍历当前阶段的每一个任务实例
+        # iterate each task instance in current phase
         for task in current_phase_tasks:
             task_type = task.get('task_type')
             if task_type not in var_map:
                 continue
 
-            # 获取当前任务类型的所有变量映射
+            # get all var mappings for current task type
             mappings = var_map[task_type]
             for var_name, task_key in mappings.items():
                 target_name = task.get(task_key)
                 if not target_name:
-                    continue  # 如果任务字典中没有对应的键（如target_location），则跳过
+                    continue  # skip if task dict lacks corresponding key (e.g. target_location)
 
-                # 在世界状态中查找目标位置
+                # look up target position in world state
                 target_pos_data = None
                 if world_state:
                     if 'object_positions' in world_state and target_name in world_state['object_positions']:
@@ -698,7 +698,7 @@ class PerceptionConnector:
                             target_pos_data = pos_info['position']
 
                 if target_pos_data:
-                    # 大多数任务函数期望一个2D的 [x, z] 坐标
+                    # most task functions expect 2D [x, z] coordinates
                     pos_2d = np.array(target_pos_data)[[0, 2]]
                     scenario_config.update_global_task_var(var_name, pos_2d)
                     print(f"  - Updated global var '{var_name}' for task '{task_type}' with pos {pos_2d} from target '{target_name}'")
@@ -706,9 +706,9 @@ class PerceptionConnector:
                     print(f"  [Updater] WARNING: Could not find position for target '{target_name}' (from key '{task_key}') in task '{task_type}'")
 
 
-     # --- LLM 任务分解与分析 ---
+     # --- LLM task decomposition and analysis ---
     def _get_objects_string_for_prompt(self, env_interface: "EnvironmentInterface") -> str:
-        """从WorldGraph格式化对象列表以用于LLM prompt。"""
+        """Format object list from WorldGraph for LLM prompt."""
         full_graph = env_interface.full_world_graph
         objects_for_prompt = []
 
@@ -729,7 +729,7 @@ class PerceptionConnector:
         return f"objects = {json.dumps(objects_for_prompt)}"
 
     def _get_agent_status_for_prompt(self, world_state: Dict[str, Any]) -> str:
-        """从世界状态格式化智能体状态以用于LLM prompt。"""
+        """Format agent state from world state for LLM prompt."""
         if not world_state:
             return "No agent status available"
             
@@ -753,7 +753,7 @@ class PerceptionConnector:
         return "\n".join(agent_status_lines) if agent_status_lines else "No agents found."
 
     def _parse_decomposition_response(self, response_text: str) -> List[Dict[str, Any]]:
-        """解析LLM返回的结构化任务分解JSON。"""
+        """Parse structured task decomposition JSON from LLM."""
         try:
             json_text = extract_json_from_text(response_text, list)
             if not json_text:
@@ -786,7 +786,7 @@ class PerceptionConnector:
             return []
 
     def _simple_task_decomposition(self, instruction: str) -> List[Dict[str, Any]]:
-        """当LLM分解失败时使用的基于规则的简单任务分解。"""
+        """Rule-based simple decomposition when LLM decomposition fails."""
         tasks = []
         if "pick" in instruction.lower() and "place" in instruction.lower():
             tasks.extend([
@@ -799,7 +799,7 @@ class PerceptionConnector:
         else:
             tasks.append({'task_type': 'Explore', 'target': 'environment', 'description': instruction, 'priority': 3})
 
-        # 为所有简单任务添加默认值
+        # add defaults for all simple tasks
         for task in tasks:
             task.setdefault('estimated_duration', 10.0)
             task.setdefault('preferred_agent', None)
@@ -807,14 +807,14 @@ class PerceptionConnector:
         return tasks
     
     def _initialize_base_T_matrix(self) -> np.ndarray:
-        """返回基础的任务-能力需求矩阵T"""
+        """Return base task-capability requirement matrix T"""
         return self.BASE_TASK_CAPABILITY_REQUIREMENTS.copy()
     
     def _init_llm_client(self,
                         llm_client: Optional[Any] = None,
                         api_key_filename: Optional[str] = None,
                         llm_base_url: Optional[str] = "https://api.moonshot.cn/v1"):
-        """初始化LLM客户端"""
+        """Initialize LLM client"""
         if self.llm_client is not None:
             return
         try:

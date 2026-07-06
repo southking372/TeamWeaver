@@ -1,46 +1,46 @@
 class PerformanceEvaluator:
     def __init__(self, human_models):
         """
-        初始化性能评估器
+        Initialize performance evaluator
         
-        参数:
-            human_models: 人类模型列表
+        Parameters:
+            human_models: list of human models
         """
         self.human_models = human_models
         
     def evaluate_performance(self, human_idx, task_type, execution_data):
         """
-        评估任务执行性能
+        Evaluate task execution performance
         
-        参数:
-            human_idx: 人类模型索引
-            task_type: 任务类型
-            execution_data: 执行数据
+        Parameters:
+            human_idx: human model index
+            task_type: task type
+            execution_data: execution data
             
-        返回:
-            性能分数
+        Returns:
+            performance score
         """
-        # 确保索引有效
+        # validate index
         if human_idx < 0 or human_idx >= len(self.human_models):
-            raise ValueError(f"无效的人类模型索引: {human_idx}")
+            raise ValueError(f"Invalid human model index: {human_idx}")
             
-        # 获取对应的人类模型
+        # get corresponding human model
         human_model = self.human_models[human_idx]
         
-        # 提取关键性能指标
+        # extract key performance metrics
         metrics = self._extract_metrics(execution_data)
         
-        # 计算综合性能分数
+        # compute aggregate performance score
         performance_score = self._calculate_performance_score(metrics)
         
-        # 更新人类模型
+        # update human model
         human_model.adapt_capability(task_type, performance_score)
         
         return performance_score
         
     def _extract_metrics(self, execution_data):
-        """提取性能指标"""
-        # 根据任务类型提取不同的指标
+        """Extract performance metrics."""
+        # extract different metrics depending on task type
         metrics = {}
         
         if 'transport' in execution_data:
@@ -61,8 +61,8 @@ class PerformanceEvaluator:
         return metrics
         
     def _calculate_performance_score(self, metrics):
-        """计算综合性能分数"""
-        # 根据指标权重计算综合分数
+        """Compute aggregate performance score."""
+        # weighted sum over metrics
         weights = {
             'accuracy': 0.4,
             'efficiency': 0.3,
@@ -74,7 +74,7 @@ class PerformanceEvaluator:
             'adaptability': 0.3
         }
         
-        # 计算加权平均分数
+        # compute weighted average
         total_weight = 0
         weighted_sum = 0
         
@@ -83,142 +83,142 @@ class PerformanceEvaluator:
                 weighted_sum += value * weights[metric]
                 total_weight += weights[metric]
         
-        # 如果没有有效指标，返回0
+        # no valid metrics
         if total_weight == 0:
             return 0
             
-        # 计算最终分数
+        # final score
         performance_score = weighted_sum / total_weight
         
-        # 确保分数在0-1范围内
+        # clamp to [0, 1]
         return max(0, min(1, performance_score))
             
     def _calculate_accuracy(self, execution_data):
-        """计算准确性指标"""
-        # 从执行数据中提取准确性相关指标
+        """Compute accuracy metric."""
+        # extract accuracy-related metrics from execution data
         if 'target_position' in execution_data and 'actual_position' in execution_data:
-            # 计算目标位置与实际位置的误差
+            # error between target and actual position
             target = execution_data['target_position']
             actual = execution_data['actual_position']
             error = sum((t - a) ** 2 for t, a in zip(target, actual)) ** 0.5
             
-            # 将误差转换为0-1范围的分数，误差越小分数越高
+            # convert error to [0, 1] score; lower error is better
             max_error = execution_data.get('max_error', 10.0)
             accuracy = max(0, 1 - error / max_error)
             return accuracy
         else:
-            # 如果没有位置数据，返回默认值
+            # default when position data is missing
             return 0.7
             
     def _calculate_efficiency(self, execution_data):
-        """计算效率指标"""
-        # 从执行数据中提取效率相关指标
+        """Compute efficiency metric."""
+        # extract efficiency-related metrics from execution data
         if 'completion_time' in execution_data and 'expected_time' in execution_data:
-            # 计算完成时间与预期时间的比率
+            # ratio of completion time to expected time
             actual_time = execution_data['completion_time']
             expected_time = execution_data['expected_time']
             
-            # 时间越短效率越高，但设置一个下限
+            # shorter time is better, with a lower bound
             efficiency = min(1.0, expected_time / max(actual_time, 0.1))
             return efficiency
         else:
-            # 如果没有时间数据，返回默认值
+            # default when timing data is missing
             return 0.6
             
     def _calculate_safety(self, execution_data):
-        """计算安全性指标"""
-        # 从执行数据中提取安全性相关指标
+        """Compute safety metric."""
+        # extract safety-related metrics from execution data
         if 'collisions' in execution_data and 'total_operations' in execution_data:
-            # 计算碰撞率
+            # collision rate
             collisions = execution_data['collisions']
             total_ops = execution_data['total_operations']
             
-            # 碰撞越少安全性越高
+            # fewer collisions means higher safety
             collision_rate = collisions / max(total_ops, 1)
             safety = max(0, 1 - collision_rate)
             return safety
         else:
-            # 如果没有碰撞数据，返回默认值
+            # default when collision data is missing
             return 0.8
             
     def _calculate_coverage_area(self, execution_data):
-        """计算覆盖面积指标"""
-        # 从执行数据中提取覆盖面积相关指标
+        """Compute coverage area metric."""
+        # extract coverage area metrics from execution data
         if 'covered_area' in execution_data and 'total_area' in execution_data:
-            # 计算覆盖面积比例
+            # covered area ratio
             covered = execution_data['covered_area']
             total = execution_data['total_area']
             
             coverage = min(1.0, covered / max(total, 0.1))
             return coverage
         else:
-            # 如果没有面积数据，返回默认值
+            # default when area data is missing
             return 0.75
             
     def _calculate_uniformity(self, execution_data):
-        """计算均匀性指标"""
-        # 从执行数据中提取均匀性相关指标
+        """Compute uniformity metric."""
+        # extract uniformity metrics from execution data
         if 'coverage_density' in execution_data:
-            # 计算覆盖密度的标准差，标准差越小均匀性越高
+            # std dev of coverage density; lower std dev means higher uniformity
             densities = execution_data['coverage_density']
             if len(densities) > 1:
                 mean_density = sum(densities) / len(densities)
                 variance = sum((d - mean_density) ** 2 for d in densities) / len(densities)
                 std_dev = variance ** 0.5
                 
-                # 将标准差转换为0-1范围的分数，标准差越小分数越高
+                # convert std dev to [0, 1] score; lower std dev is better
                 max_std = execution_data.get('max_std', 0.5)
                 uniformity = max(0, 1 - std_dev / max_std)
                 return uniformity
             else:
                 return 0.7
         else:
-            # 如果没有密度数据，返回默认值
+            # default when density data is missing
             return 0.7
             
     def _calculate_response_time(self, execution_data):
-        """计算响应时间指标"""
-        # 从执行数据中提取响应时间相关指标
+        """Compute response time metric."""
+        # extract response time metrics from execution data
         if 'response_times' in execution_data:
-            # 计算平均响应时间
+            # average response time
             times = execution_data['response_times']
             if times:
                 avg_time = sum(times) / len(times)
                 
-                # 响应时间越短分数越高，但设置一个下限
+                # shorter response time is better, with a lower bound
                 max_time = execution_data.get('max_response_time', 5.0)
                 response_score = max(0, 1 - avg_time / max_time)
                 return response_score
             else:
                 return 0.6
         else:
-            # 如果没有响应时间数据，返回默认值
+            # default when response time data is missing
             return 0.6
             
     def _calculate_stability(self, execution_data):
-        """计算稳定性指标"""
-        # 从执行数据中提取稳定性相关指标
+        """Compute stability metric."""
+        # extract stability metrics from execution data
         if 'control_variations' in execution_data:
-            # 计算控制变化的幅度，变化越小稳定性越高
+            # magnitude of control variation; smaller variation means higher stability
             variations = execution_data['control_variations']
             if variations:
                 avg_variation = sum(variations) / len(variations)
                 
-                # 将变化幅度转换为0-1范围的分数，变化越小分数越高
+                # convert variation magnitude to [0, 1] score; smaller variation is better
                 max_variation = execution_data.get('max_variation', 2.0)
                 stability = max(0, 1 - avg_variation / max_variation)
                 return stability
             else:
                 return 0.7
         else:
-            # 如果没有变化数据，返回默认值
+            # default when variation data is missing
             return 0.7
             
     def _calculate_adaptability(self, execution_data):
-        """计算适应性指标"""
-        # 从执行数据中提取适应性相关指标
+        """Compute adaptability metric."""
+        # extract adaptability metrics from execution data
         if 'environment_changes' in execution_data and 'adaptation_success' in execution_data:
-            # 计算环境变化后的适应成功率
+            # success rate after environment changes
             changes = execution_data['environment_changes']
             successes = execution_data['adaptation_success']
             
@@ -228,5 +228,5 @@ class PerformanceEvaluator:
             else:
                 return 0.7
         else:
-            # 如果没有适应数据，返回默认值
+            # default when adaptability data is missing
             return 0.7

@@ -4,31 +4,31 @@ from enum import Enum
 
 class ManipulationPhase(Enum):
     """
-    操作任务的阶段枚举
+    manipulationStage enum for task
     """
-    NAV_OBJ = 0    # 导航到物体
-    PICK = 1       # 抓取物体
-    NAV_REC = 2    # 导航到目标位置
-    PLACE = 3      # 放置物体
+    NAV_OBJ = 0    # Navigate to object
+    PICK = 1       # Grab objects
+    NAV_REC = 2    # Navigate to target location
+    PLACE = 3      # place objects
 
-class ManipulationTask:
+classManipulationTask:
     """
-    操作任务的实现类，对应 partnr-planner 中的 rearrange 组合技能。
-    这是一个复合任务，包括导航到物体、抓取、导航到目标位置、放置等步骤。
+    manipulationThe implementation class of the task, corresponding to the rearrange combination skill in partnr-planner.
+    This is a composite task that includes the steps of navigating to the object, grabbing, navigating to the target location, and placing it.
     """
     
     @staticmethod
     def get_global_vars_dict():
         """
-        从GlobalVarsManager获取全局变量字典
+        Get global vars dict from GlobalVarsManager
         """
         global_vars_dict = None
         try:
-            # 获取GlobalVarsManager实例
-            import sys
+            # Get GlobalVarsManager instance
+            importsys
             global_vars_manager = None
             
-            # 在所有模块中搜索GlobalVarsManager实例
+            # Search for GlobalVarsManager instances in all modules
             for module_name, module in sys.modules.items():
                 if hasattr(module, 'global_vars'):
                     global_vars_manager = getattr(module, 'global_vars')
@@ -38,7 +38,7 @@ class ManipulationTask:
                 if hasattr(global_vars_manager, 'get_all_vars'):
                     global_vars_dict = global_vars_manager.get_all_vars()
                 elif hasattr(global_vars_manager, 'get_var'):
-                    # 构建字典，包含所有操作任务需要的变量
+                    # Build a dictionary containing all variables required by the manipulation task
                     global_vars_dict = {
                         'manipulation_phase': global_vars_manager.get_var('manipulation_phase', ManipulationPhase.NAV_OBJ),
                         'target_object_position': global_vars_manager.get_var('target_object_position', np.array([0.8, -0.5])),
@@ -51,13 +51,13 @@ class ManipulationTask:
                         'holding_robot_id': global_vars_manager.get_var('holding_robot_id', None)
                     }
                 else:
-                    print("全局变量管理器缺少必要的方法")
+                    print("Global vars manager is missing required methods")
                     global_vars_dict = {}
             else:
-                print("无法找到global_vars_manager")
+                print("Could not find global_vars_manager")
         
         except Exception as e:
-            print(f"获取全局变量管理器时出错: {e}")
+            print(f"Error getting global vars manager: {e}")
             global_vars_dict = None
             
         return global_vars_dict
@@ -70,15 +70,15 @@ class ManipulationTask:
 
         current_phase = vars_dict.get('manipulation_phase', ManipulationPhase.NAV_OBJ)
         is_holding = vars_dict.get('is_holding', False)
-        holding_robot_id = vars_dict.get('holding_robot_id', None) # 获取持有者ID
-        nav_attraction_factor = 10.0 # 大幅增加导航吸引力
+        holding_robot_id = vars_dict.get('holding_robot_id', None) # Get holder ID
+        nav_attraction_factor = 10.0 # Significantly increase navigation attractiveness
         
-        # 阶段权重系数，后期阶段权重更高
+        # Stage weight coefficient, later stages have higher weights
         phase_weights = {
-            ManipulationPhase.NAV_OBJ: 1.0,  # 基础权重
-            ManipulationPhase.PICK: 1.2,     # 略高权重
-            ManipulationPhase.NAV_REC: 1.5,  # 较高权重
-            ManipulationPhase.PLACE: 2.0     # 最高权重
+            ManipulationPhase.NAV_OBJ: 1.0,  # Basic weight
+            ManipulationPhase.PICK: 1.2,     # Slightly higher weight
+            ManipulationPhase.NAV_REC: 1.5,  # higher weight
+            ManipulationPhase.PLACE: 2.0     # highest weight
         }
         current_weight = phase_weights.get(current_phase, 1.0)
 
@@ -156,7 +156,7 @@ class ManipulationTask:
                         return current_weight * (place_action_value + proximity_bonus) + 30.0
                     return current_weight * (place_action_value + proximity_bonus)
                 else:
-                    # 不在PLACE范围内，给予负的任务函数值，引导机器人回到目标位置
+                    # If it is not within the range of PLACE, give a negative task function value to guide the robot back to the target position.
                     return -10.0 * dist_to_rec
             else:
                 return -100.0
@@ -168,7 +168,7 @@ class ManipulationTask:
     def manipulation_gradient(x_i, t, i, vars_dict=None):
         """
         Return:
-            目标函数相对于状态的梯度 [dx, dy, dtheta]
+            The gradient of the objective function with respect to the state [dx, dy, dtheta]
         """
         if vars_dict is None:
             vars_dict = ManipulationTask.get_global_vars_dict()
@@ -196,7 +196,7 @@ class ManipulationTask:
             if np.linalg.norm(target_vector) > 1e-6:
                 desired_angle = np.arctan2(target_vector[1], target_vector[0])
                 angle_diff = np.arctan2(np.sin(x_i[2] - desired_angle), np.cos(x_i[2] - desired_angle))
-                gradient[2] = -0.6 * angle_diff # 角度梯度强度暂时不变
+                gradient[2] = -0.6 * angle_diff # The angular gradient strength is temporarily unchanged
 
         elif current_phase == ManipulationPhase.PICK:
             target_obj = vars_dict.get('target_object_position')
@@ -266,14 +266,14 @@ class ManipulationTask:
         is_holding = vars_dict.get('is_holding', False)
         holding_robot_id = vars_dict.get('holding_robot_id', None)
 
-        # 如果其他机器人在搬运且处于NAV_REC或PLACE，当前机器人不动
+        # If other robots are carrying and in NAV_REC or PLACE, the current robot does not move
         if is_holding and holding_robot_id != i and (current_phase == ManipulationPhase.NAV_REC or current_phase == ManipulationPhase.PLACE):
             return x_i
 
         current_pos = x_i[0:2]
         current_theta = x_i[2]
 
-        # --- 统一的导航控制逻辑 ---
+        # --- Unified navigation control logic ---
         target_pos = None
         if current_phase == ManipulationPhase.NAV_OBJ:
             target_pos = vars_dict.get('target_object_position')
@@ -281,91 +281,91 @@ class ManipulationTask:
             target_pos = vars_dict.get('target_receptacle_position')
 
         if target_pos is not None and (current_phase == ManipulationPhase.NAV_OBJ or current_phase == ManipulationPhase.NAV_REC):
-            # 控制参数
-            Kp_linear = 0.5  # 线性速度比例增益 (稍快一点)
-            Kp_angular = 1.0 # 角速度比例增益 (稍快一点)
-            u_max_list = vars_dict.get('u_max', [0.5, 2.5]) # 从全局获取速度限制
-            max_v = u_max_list[0] # 最大线速度
-            max_omega = u_max_list[1] # 最大角速度
-            stop_dist = 0.05  # 停止距离阈值 (非常近)
-            angle_stop_threshold = 0.05 # 角度停止阈值 (弧度)
+            # control parameters
+            Kp_linear = 0.5  # Linear speed proportional gain (a little faster)
+            Kp_angular = 1.0 # Angular velocity proportional gain (a little faster)
+            u_max_list = vars_dict.get('u_max', [0.5, 2.5]) # Get speed limit from global
+            max_v = u_max_list[0] # Maximum linear speed
+            max_omega = u_max_list[1] # maximum angular velocity
+            stop_dist = 0.05  # Stop distance threshold (very close)
+            angle_stop_threshold = 0.05 # angle stop threshold (radian)
 
-            # 计算误差
+            # Calculation error
             vec_to_target = target_pos - current_pos
             dist_to_target = np.linalg.norm(vec_to_target)
 
-            # 计算目标角度和角度差 (确保vec_to_target非零)
-            desired_theta = current_theta # 默认保持当前角度
+            # Calculate target angle and heading difference (Make sure vec_to_target is non-zero)
+            desired_theta = current_theta # Keep current angle by default
             if dist_to_target > 1e-6:
                 desired_theta = np.arctan2(vec_to_target[1], vec_to_target[0])
             angle_diff = np.arctan2(np.sin(desired_theta - current_theta), np.cos(desired_theta - current_theta)) # desired - current
 
-            # 如果已经非常接近目标
+            # If you are very close to the target
             if dist_to_target < stop_dist:
-                forward_speed = 0 # 停止前进
-                # P控制角速度以对准
+                forward_speed = 0 # Stop moving forward
+                # Pcontrolangular velocity to align
                 angular_speed = Kp_angular * angle_diff
-                # 如果角度误差也很小，则停止转动
+                # If the angle error is also small, stop rotating
                 if abs(angle_diff) < angle_stop_threshold:
                      angular_speed = 0
-                # 限制角速度
+                # Limit angular velocity
                 angular_speed = np.clip(angular_speed, -max_omega, max_omega)
 
-            # --- 如果距离较远，则同时控制线速度和角速度 ---
+            # --- If the distance is far, control the linear speed and angular speed at the same time ---
             else:
-                # P控制线速度
+                # Pcontrollinear speed
                 forward_speed = Kp_linear * dist_to_target
-                # 根据角度误差减小线速度
-                angle_factor = max(0.0, 1.0 - abs(angle_diff) / (np.pi/2)) # 角度差越大，速度越慢
+                # Reduce linear speed based on angular error
+                angle_factor = max(0.0, 1.0 - abs(angle_diff) / (np.pi/2)) # heading differenceThe bigger it is, the slower it is
                 forward_speed *= angle_factor
-                # 限制线速度
+                # Limit line speed
                 forward_speed = np.clip(forward_speed, 0, max_v)
 
-                # P控制角速度
+                # PcontrolAngular velocity
                 angular_speed = Kp_angular * angle_diff
-                # 限制角速度
+                # Limit angular velocity
                 angular_speed = np.clip(angular_speed, -max_omega, max_omega)
 
-            # 更新状态
+            # update status
             new_pos_x = current_pos[0] + forward_speed * np.cos(current_theta) * dt
             new_pos_y = current_pos[1] + forward_speed * np.sin(current_theta) * dt
             new_theta = current_theta + angular_speed * dt
-            # 限制角度在 [0, 2*pi)
+            # The angle is limited to [0, 2*pi)
             new_theta = np.mod(new_theta, 2 * np.pi)
 
             return np.array([new_pos_x, new_pos_y, new_theta])
 
         elif current_phase == ManipulationPhase.PICK:
-            # PICK 阶段通常是瞬间动作或由外部控制，这里保持不动
+            # PICK The stage is usually a momentary action or external control, here it remains motionless
             return x_i
 
         elif current_phase == ManipulationPhase.PLACE:
-            # PLACE 阶段通常是瞬间动作或由外部控制，这里保持不动
+            # PLACE The stage is usually a momentary action or external control, here it remains motionless
             return x_i
 
-        # 其他未知阶段或无目标时保持不动
+        # Remain motionless during other unknown stages or when there is no target
         return x_i
 
     def __init__(self):
-        self.manipulation_phase = ManipulationPhase.NAV_OBJ  # 初始化操作阶段
-        self.is_holding = False  # 初始化is_holding状态
-        self.manipulation_phase_timer = 0  # 初始化操作阶段计时器
-        self.manipulation_action_fixed_duration = 1.0  # 假设固定持续时间为1秒
+        self.manipulation_phase = ManipulationPhase.NAV_OBJ  # Initialization manipulation phase
+        self.is_holding = False  # Initialize is_holding state
+        self.manipulation_phase_timer = 0  # Initialize the manipulation phase timer
+        self.manipulation_action_fixed_duration = 1.0  # Assume a fixed duration of 1 second
 
     def update_phase(self, new_phase):
         self.manipulation_phase = new_phase
-        self.manipulation_phase_timer = 0  # 重置操作阶段计时器
+        self.manipulation_phase_timer = 0  # Reset the manipulation phase timer
 
     def update_timer(self, dt):
         self.manipulation_phase_timer += dt
 
     def update_is_holding(self):
-        # 在PICK阶段结束时更新is_holding状态
+        # Update is_holding status at the end of the PICK phase
         if self.manipulation_phase == ManipulationPhase.PICK:
             if self.manipulation_phase_timer >= self.manipulation_action_fixed_duration:
-                self.is_holding = True  # 抓取成功后更新状态
+                self.is_holding = True  # Update status after successful fetching
 
-        # 在PLACE阶段结束时更新is_holding状态
+        # Update the is_holding status at the end of the PLACE phase
         if self.manipulation_phase == ManipulationPhase.PLACE:
             if self.manipulation_phase_timer >= self.manipulation_action_fixed_duration:
-                self.is_holding = False  # 放置成功后更新状态 
+                self.is_holding = False  # Update status after successful placement 

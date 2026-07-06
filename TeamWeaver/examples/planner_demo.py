@@ -12,8 +12,8 @@ import os
 import traceback
 import json
 import shutil
-import psutil  # 添加内存监控
-import logging  # 添加日志
+import psutil  #Add memory monitoring
+import logging  #add log
 from omegaconf import OmegaConf
 
 
@@ -49,33 +49,33 @@ from habitat_llm.agent.env.dataset import CollaborationDatasetV0
 from habitat_baselines.utils.info_dict import extract_scalars_from_info
 
 
-# 设置日志
+#Setup log
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('planner_debug.log'), # 主日志文件
+        logging.FileHandler('planner_debug.log'), #main log file
         logging.StreamHandler()
     ]
 )
 
-# 确保 HallucinationEvalLogger 输出到其独立文件的方式：
+#make sureHallucinationEvalLoggerOutput to its own separate file:
 hallucination_logger_config_done = False
 if not hallucination_logger_config_done:
     try:
-        pass # 日志配置主要在 LLMPlanner 中进行，以保持配置集中
-        hallucination_logger_config_done = True # 避免在多进程场景下重复尝试配置
+        pass #The log configuration is mainly inLLMPlannerin order to keep the configuration centralized
+        hallucination_logger_config_done = True #Avoid repeated configuration attempts in multi-process scenarios
     except Exception as e:
-        logging.warning(f"配置 HallucinationEvalLogger 时出现问题: {e}")
+        logging.warning(f"ConfigurationHallucinationEvalLoggerProblem occurs when: {e}")
 
 
 def log_system_info():
-    """记录系统信息"""
+    """Record system information"""
     mem = psutil.virtual_memory()
-    logging.info(f"系统内存使用情况:")
-    logging.info(f"总内存: {mem.total / (1024**3):.2f}GB")
-    logging.info(f"可用内存: {mem.available / (1024**3):.2f}GB")
-    logging.info(f"内存使用率: {mem.percent}%")
+    logging.info(f"System memory usage:")
+    logging.info(f"total memory: {mem.total / (1024**3):.2f}GB")
+    logging.info(f"available memory: {mem.available / (1024**3):.2f}GB")
+    logging.info(f"memory usage: {mem.percent}%")
 
 
 def get_output_file(config, env_interface):
@@ -274,7 +274,7 @@ def run_eval(config):
 
 def run_planner(config, dataset: CollaborationDatasetV0 = None, conn=None):
     try:
-        log_system_info()  # 记录系统信息
+        log_system_info()  #Record system information
         
         if config == None:
             logging.error("Failed to setup config. Exiting")
@@ -474,9 +474,9 @@ def run_planner(config, dataset: CollaborationDatasetV0 = None, conn=None):
             conn.close()
 
     except Exception as e:
-        logging.error(f"严重错误: {str(e)}")
+        logging.error(f"serious error: {str(e)}")
         logging.error(traceback.format_exc())
-        # 如果 conn 存在，则关闭
+        #ifconnIf exists, close
         if conn is not None:
             conn.close()
         raise
@@ -495,6 +495,6 @@ if __name__ == "__main__":
         run_eval()
 
     except Exception as e:
-        logging.error(f"程序执行出错: {str(e)}")
+        logging.error(f"Program execution error: {str(e)}")
         logging.error(traceback.format_exc())
         sys.exit(1)

@@ -747,13 +747,13 @@ class LLMPlanner(Planner):
         world_graph: Dict[int, "WorldGraph"],
     ) -> str:
         """
-        重新规划：集成任务分解、MIQP优化和序列化执行、支持阶段性任务执行和动态T矩阵生成
+        Replan: task decomposition, MIQP optimization, sequenced execution, phased tasks, dynamic T matrix
         
         Returns:
-            llm_response: LLM生成的响应字符串
+            llm_response: LLM-generated responsestring
         """
         print("\n" + "="*80)
-        print("🚀 开始 MIQP Enhanced Plan")
+        print("🚀 Starting MIQP Enhanced Plan")
         print("="*80)
         
         t = 0.0
@@ -1011,10 +1011,10 @@ class LLMPlanner(Planner):
             agent.uid: self.replan_required for agent in self.agents
         }
 
-        # 简化的阶段推进检查
+        #Simplified stage-advance inspection
         # if (hasattr(self, 'perception_connector') and self.perception_connector and 
         #     hasattr(self, '_phase_transition_pending') and self._phase_transition_pending):
-        #     # 重置标志
+        #     #reset flag
         #     self._phase_transition_pending = False
         #     self.replan_required = True
         #     print(f"[INFO] **NEW** Phase transition detected, forcing plan on this iteration")

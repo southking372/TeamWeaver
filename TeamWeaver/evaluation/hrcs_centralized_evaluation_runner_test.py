@@ -42,7 +42,7 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
                                            including agent and planner configurations
         :param env_arg: Environment interface instance that provides access to the simulation
         """
-        # 初始化人类建模系统相关属性
+        #Initialize human modeling system related properties
         self.human_system = None
         self.human_scenario_matrices = None
         self.task_optimizer = None
@@ -52,55 +52,55 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         
     def get_human_feedback(self, agent_id, agent_obs):
         """
-        获取人类操作员的反馈信息，包括从Habitat-Sim模拟器中获取人的反馈
+get humansmanipulationfeedback from staff, including fromHabitat-SimGet human feedback in the simulator
         
         Args:
-            agent_id: 代理ID
-            agent_obs: 代理的观察结果
+            agent_id:actingID
+            agent_obs:Agent's Observations
             
         Returns:
-            dict: 包含人类操作员反馈信息的字典
+            dict:Contains humansmanipulationDictionary of employee feedback information
         """
-        # 初始化人类反馈
+        #Initialize human feedback
         human_feedback = {
             "capabilities": {},
             "current_task": None,
-            "task_effectiveness": 0.5,  # 默认任务效果
-            "verbal_feedback": ""  # 从模拟器获取的文本反馈
+            "task_effectiveness": 0.5,  #Default task effect
+            "verbal_feedback": ""  #Text feedback obtained from the simulator
         }
         
-        # 检查是否是人类操作员
+        #Check if it is humanmanipulationmember
         if self.human_system is not None and self.human_agent_uid == agent_id:
-            # 获取人类操作员的能力
+            #get humansmanipulationstaff’s ability
             human_capabilities = self.human_system.human_models[0].capabilities
             human_feedback["capabilities"] = human_capabilities
             
-            # 获取当前任务信息
+            #Get current task information
             if "task_assignment" in agent_obs and self.human_agent_uid in agent_obs["task_assignment"]:
                 task_idx = agent_obs["task_assignment"][self.human_agent_uid]
                 if task_idx > 0:
                     task_type = "transport" if task_idx == 1 else "coverage"
                     human_feedback["current_task"] = task_type
             
-            # 从Habitat-Sim模拟器获取人类操作员的文本反馈
+            #fromHabitat-SimSimulator gets humansmanipulationText feedback from staff
             try:
-                # 这里应该调用Habitat-Sim的API获取人类操作员的反馈
-                # 由于没有实际的API调用，这里使用模拟数据
+                #This should be calledHabitat-SimofAPIget humansmanipulationstaff feedback
+                #Since there is no actualAPICall, use simulated data here
                 if self.env_interface is not None:
-                    # 假设env_interface有一个方法可以获取人类反馈
-                    # 实际实现可能需要根据具体的API进行调整
+                    #hypothesisenv_interfaceThere is a way to get human feedback
+                    #Actual implementation may need to be based on specificAPImake adjustments
                     verbal_feedback = self.env_interface.get_human_feedback(agent_id)
                     if verbal_feedback:
                         human_feedback["verbal_feedback"] = verbal_feedback
                     else:
-                        # 如果没有获取到反馈，生成一个基于当前任务的默认反馈
+                        #If no feedback is obtained, generate a default feedback based on the current task
                         if human_feedback["current_task"]:
-                            human_feedback["verbal_feedback"] = f"我正在执行{human_feedback['current_task']}任务，进展顺利。"
+                            human_feedback["verbal_feedback"] = f"I'm executing{human_feedback['current_task']}The task is progressing smoothly."
                         else:
-                            human_feedback["verbal_feedback"] = "我准备好了，等待下一个任务。"
+                            human_feedback["verbal_feedback"] = "I'm ready and waiting for the next task."
             except Exception as e:
-                print(f"获取人类反馈时出错: {e}")
-                human_feedback["verbal_feedback"] = "无法获取反馈信息。"
+                print(f"Error getting human feedback: {e}")
+                human_feedback["verbal_feedback"] = "Unable to get feedback."
         
         return human_feedback
 
@@ -111,81 +111,81 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
             world_graph: Dict[int, "WorldGraph"],
         ):
         """
-        Perception Layer部分包括有：
-        1. 各个Agent之间的Communication信道交流，根据(所有Agent的Observation及其WorldGraph 和 Human Agent所提供的对当前执行情况的输入反馈)来生成较为统一Unified的Observation
-        2. 根据当前各个Agent的observation以及各个Agent之间的Communication信息，生成当前各个Agent的observation_summary以作为一个prompt输入给Planner Layer
+        Perception LayerSome include:
+1. eachAgentbetweenCommunicationchannel communication, based on(allAgentofObservationandWorldGraphandHuman AgentInput feedback provided on current execution)to generate a more unifiedUnifiedofObservation
+2. According to the currentAgentofobservationand variousAgentbetweenCommunicationinformation, generating each currentAgentofobservation_summaryas apromptinput toPlanner Layer
 
-        其中world_graph是字典的类型存储，key为Agent的UID，value为WorldGraph的实例
+inworld_graphIs a dictionary type storage,keyforAgentofUID，valueforWorldGraphExample of
         """
-        # 初始化统一的观察结果
+        #Initialize unified observations
         unified_observation = {}
         
-        # 1. 处理各个Agent之间的通信，生成统一的Observation
+        #1. Process eachAgentcommunication between each other, generating a unifiedObservation
         for agent_id, agent_obs in observations.items():
             agent_world_graph = world_graph.get(agent_id)
             if agent_world_graph is None:
                 continue
                 
-            # 获取人类操作员的反馈
+            #get humansmanipulationstaff feedback
             human_feedback = self.get_human_feedback(agent_id, agent_obs)
             
-            # 合并Agent的观察结果和人类反馈
+            #mergeAgentObservations and Human Feedback
             unified_observation[agent_id] = {
                 "observation": agent_obs,
                 "world_graph": agent_world_graph,
                 "human_feedback": human_feedback if self.human_system is not None and self.human_agent_uid == agent_id else None
             }
         
-        # 2. 生成各个Agent的observation_summary作为prompt输入给Planner Layer
+        #2. Generate eachAgentofobservation_summaryaspromptinput toPlanner Layer
         observation_summary = {}
         for agent_id, unified_obs in unified_observation.items():
-            # 获取Agent的观察结果和WorldGraph
+            #getAgentobservations andWorldGraph
             agent_obs = unified_obs["observation"]
             agent_world_graph = unified_obs["world_graph"]
             
-            # 生成观察摘要
-            summary = f"Agent {agent_id} 的观察结果:\n"
+            #Generate observation summary
+            summary = f"Agent {agent_id}Observations:\n"
             
-            # 添加WorldGraph中的关键信息
+            #Add toWorldGraphkey information in
             if agent_world_graph is not None:
-                # 获取房间信息
+                #Get room information
                 rooms = agent_world_graph.get_all_rooms()
                 if rooms:
-                    summary += f"房间: {', '.join([room.name for room in rooms])}\n"
+                    summary += f"Room: {', '.join([room.name for room in rooms])}\n"
                 
-                # 获取家具信息
+                #Get furniture information
                 furnitures = agent_world_graph.get_all_furnitures()
                 if furnitures:
-                    summary += f"家具: {', '.join([furniture.name for furniture in furnitures])}\n"
+                    summary += f"furniture: {', '.join([furniture.name for furniture in furnitures])}\n"
                 
-                # 获取物体信息
+                #Get object information
                 objects = agent_world_graph.get_all_objects()
                 if objects:
-                    summary += f"物体: {', '.join([obj.name for obj in objects])}\n"
+                    summary += f"object: {', '.join([obj.name for obj in objects])}\n"
                 
-                # 获取代理信息
+                #Get agent information
                 agents = agent_world_graph.get_agents()
                 if agents:
-                    summary += f"代理: {', '.join([agent.name for agent in agents])}\n"
+                    summary += f"acting: {', '.join([agent.name for agent in agents])}\n"
             
-            # 添加人类操作员的反馈信息
+            #add humanmanipulationfeedback from staff
             if unified_obs["human_feedback"] is not None:
                 human_feedback = unified_obs["human_feedback"]
-                summary += f"人类操作员反馈:\n"
-                summary += f"  能力: {human_feedback['capabilities']}\n"
+                summary += f"humanmanipulationemployee feedback:\n"
+                summary += f"ability: {human_feedback['capabilities']}\n"
                 if human_feedback["current_task"] is not None:
-                    summary += f"  当前任务: {human_feedback['current_task']}\n"
-                    summary += f"  任务效果: {human_feedback['task_effectiveness']}\n"
+                    summary += f"current task: {human_feedback['current_task']}\n"
+                    summary += f"Task effect: {human_feedback['task_effectiveness']}\n"
                 if human_feedback["verbal_feedback"]:
-                    summary += f"  文本反馈: {human_feedback['verbal_feedback']}\n"
+                    summary += f"text feedback: {human_feedback['verbal_feedback']}\n"
             
-            # 添加其他观察信息
+            #Add additional observations
             if "task_assignment" in agent_obs:
-                summary += f"任务分配: {agent_obs['task_assignment']}\n"
+                summary += f"Task allocation: {agent_obs['task_assignment']}\n"
             
             observation_summary[agent_id] = summary
         
-        # 返回统一的观察结果和观察摘要
+        #Return unified observations and summary of observations
         return {
             "unified_observation": unified_observation,
             "observation_summary": observation_summary
@@ -201,9 +201,9 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         """
         Given a set of observations, gets a vector of low level actions for all agents.
         """
-        # 根据planner类型和人类建模系统的状态来决定如何获取低层动作
+        #according toplannertypes and human modeling system states to determine how to obtain low-level actions
         if self.human_system is not None and hasattr(self.planner, "get_next_action_with_human"):
-            # 如果planner支持人类操作员，使用专门的方法
+            #ifplannerSupport humanitymanipulationstaff, using specialized methods
             low_level_actions, planner_info, should_end = self.planner.get_next_action_with_human(
                 instruction, 
                 observations, 
@@ -212,7 +212,7 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
                 self.human_agent_uid
             )
         else:
-            # 使用标准的get_next_action方法
+            #Use standardget_next_actionmethod
             low_level_actions, planner_info, should_end = self.planner.get_next_action(
                 instruction, observations, world_graph
             )
@@ -229,9 +229,9 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         assert isinstance(self.planner, Planner)
         self.planner.reset()
         
-        # 重置人类建模系统
+        #Reset human modeling system
         if self.human_system is not None:
-            # 这里可以添加重置人类建模系统的逻辑
+            #Logic to reset the human modeling system can be added here
             pass
 
     def _initialize_planners(self) -> None:
@@ -261,11 +261,11 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         if hasattr(self.evaluation_runner_config, "human_planner_model"):
             self._initialize_human_modeling(self.evaluation_runner_config.human_planner_model)
             if self.human_agent_uid in self.agents:
-                print(f"人类操作员 (UID: {self.human_agent_uid}) 已添加到规划器中")
-                print(f"人类操作员职业类型: {self.human_system.human_models[0].profession_type}")
-                print(f"人类操作员能力值: {self.human_system.human_models[0].capabilities}")
+                print(f"humanmanipulationmember(UID: {self.human_agent_uid}) ) added to planner")
+                print(f"humanmanipulationemployee occupation type: {self.human_system.human_models[0].profession_type}")
+                print(f"humanmanipulationStaff ability value: {self.human_system.human_models[0].capabilities}")
             else:
-                print(f"警告: 人类操作员 (UID: {self.human_agent_uid}) 未在代理列表中找到")
+                print(f"warn:humanmanipulationmember(UID: {self.human_agent_uid}) ) not found in agent list")
     
     def apply_human_capability_feedback(
         self, 
@@ -283,14 +283,14 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
                 adjusted_action["action"] = np.array(adjusted_action["action"]) * (0.5 + 0.5 * precision_factor)
             low_level_actions[self.human_agent_uid] = adjusted_action
             
-            # 记录人类操作员的任务效果
+            #record humansmanipulationemployee’s task effectiveness
             if "task_assignment" in planner_info and self.human_agent_uid in planner_info["task_assignment"]:
                 task_idx = planner_info["task_assignment"][self.human_agent_uid]
                 if task_idx > 0:
                     task_type = "transport" if task_idx == 1 else "coverage"
-                    print(f"人类操作员正在执行任务: {task_type}")
+                    print(f"humanmanipulationstaff are performing tasks: {task_type}")
                     # if self.task_optimizer is not None:
-                    #     # 这里可以添加任务优化器的更新逻辑
+                    #     #Here you can add the update logic of the task optimizer
                     #     pass
         return low_level_actions, planner_info
 
@@ -301,7 +301,7 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         
         human_descriptions = human_planner_model.get(
             "human_descriptions", 
-            ["经验丰富的操作员，擅长精确控制和快速响应，有多年操作经验"] # Here can be changed to different descriptions
+            ["Experienced operator skilled in precision control and fast response, with many years of operation experience"] # Here can be changed to different descriptions
         )
         self.human_system.initialize_humans(human_descriptions)
         self.human_scenario_matrices = self.human_system.generate_scenario_matrices()
@@ -317,10 +317,10 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         self._initialize_human_modeling(human_planner_model)
         
         if hasattr(self, "planner") and isinstance(self.planner, Planner):
-            # 确保人类操作员在代理列表中
+            #ensure humanitymanipulationmember is in the agent list
             if self.human_agent_uid in self.agents:
-                print(f"人类操作员 (UID: {self.human_agent_uid}) 已添加到规划器中")
-                print(f"人类操作员职业类型: {self.human_system.human_models[0].profession_type}")
-                print(f"人类操作员能力值: {self.human_system.human_models[0].capabilities}")
+                print(f"humanmanipulationmember(UID: {self.human_agent_uid}) ) added to planner")
+                print(f"humanmanipulationemployee occupation type: {self.human_system.human_models[0].profession_type}")
+                print(f"humanmanipulationStaff ability value: {self.human_system.human_models[0].capabilities}")
             else:
-                print(f"警告: 人类操作员 (UID: {self.human_agent_uid}) 未在代理列表中找到")
+                print(f"warn:humanmanipulationmember(UID: {self.human_agent_uid}) ) not found in agent list")

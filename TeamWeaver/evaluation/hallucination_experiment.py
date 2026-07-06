@@ -19,60 +19,60 @@ from habitat_llm.evaluation.truthfulness_evaluator import TruthfulnessEvaluator,
 
 @dataclass
 class HallucinationMetrics:
-    """大模型幻觉综合评估指标"""
+    """Comprehensive evaluation index for large model hallucinations"""
     coherence_metrics: CoherenceMetrics
     truthfulness_metrics: TruthfulnessMetrics
     
-    # 综合指标
-    hallucination_score: float  # 幻觉程度 [0,1]，越低越好
-    reliability_score: float    # 可靠性评分 [0,1]，越高越好
+    #Comprehensive indicators
+    hallucination_score: float  #degree of hallucination[0,1], the lower the better
+    reliability_score: float    #reliability score[0,1], the higher the better
     
-    # 软约束优化效果
-    miqp_improvement: float     # MIQP优化带来的改善 [0,1]
-    constraint_satisfaction: float  # 约束满足度 [0,1]
+    #Soft constraint optimization effect
+    miqp_improvement: float     # MIQPImprovements brought about by optimization[0,1]
+    constraint_satisfaction: float  #constraint satisfaction[0,1]
 
 @dataclass
 class ExperimentConfig:
-    """实验配置"""
-    # 数据集配置
+    """Experimental configuration"""
+    #Dataset configuration
     dataset_path: str
     num_episodes: int = 100
     
-    # 评估配置
+    #Evaluate configuration
     enable_coherence: bool = True
     enable_truthfulness: bool = True
     enable_miqp_analysis: bool = True
     
-    # 对比实验配置
+    #Compare experimental configurations
     baseline_methods: List[str] = None  # ['vanilla_llm', 'cot', 'rag']
     
-    # 输出配置
+    #Output configuration
     output_dir: str = "hallucination_results"
     save_detailed_logs: bool = True
     generate_plots: bool = True
 
 class HallucinationExperiment:
     """
-    大模型幻觉评估实验框架
-    整合上下文一致性和事实一致性评估
+Experimental framework for large model hallucination assessment
+Integrate contextual consistency and factual consistency assessments
     """
     
     def __init__(self, config: ExperimentConfig):
         """
-        初始化实验框架
+Initialize the experimental framework
         
         Args:
-            config: 实验配置
+            config:Experimental configuration
         """
         self.config = config
         self.coherence_evaluator = CoherenceEvaluator() if config.enable_coherence else None
         self.truthfulness_evaluator = TruthfulnessEvaluator() if config.enable_truthfulness else None
         
-        # 创建输出目录
+        #Create output directory
         self.output_dir = Path(config.output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        # 设置日志
+        #Setup log
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s',
@@ -83,7 +83,7 @@ class HallucinationExperiment:
         )
         self.logger = logging.getLogger(__name__)
         
-        # 存储实验结果
+        #Store experimental results
         self.results = []
         self.baseline_results = {}
         
@@ -93,22 +93,22 @@ class HallucinationExperiment:
                       ground_truth_sequences: Dict[str, List[Dict[str, Any]]],
                       miqp_data: Optional[Dict[str, List[np.ndarray]]] = None) -> Dict[str, Any]:
         """
-        运行完整的幻觉评估实验
+Run a complete hallucination assessment experiment
         
         Args:
-            planning_traces: 各方法的规划轨迹 {method_name: [trace_steps]}
-            world_graph_sequences: 世界图序列 {method_name: [world_states]}
-            ground_truth_sequences: 真实状态序列 {method_name: [gt_states]}
-            miqp_data: MIQP优化数据 {method_name: [assignments]}
+            planning_traces:Planning trajectories for each method{method_name: [trace_steps]}
+            world_graph_sequences:world graph sequence{method_name: [world_states]}
+            ground_truth_sequences:true state sequence{method_name: [gt_states]}
+            miqp_data: MIQPOptimize data{method_name: [assignments]}
             
         Returns:
-            Dict: 实验结果汇总
+            Dict:Summary of experimental results
         """
-        self.logger.info("开始大模型幻觉评估实验")
+        self.logger.info("Begin large-model illusion evaluation experiment")
         
-        # 1. 评估各方法的幻觉程度
+        #1. Evaluate the degree of hallucination of each method
         for method_name in planning_traces.keys():
-            self.logger.info(f"评估方法: {method_name}")
+            self.logger.info(f"Assessment method: {method_name}")
             
             method_results = self._evaluate_method(
                 method_name=method_name,
@@ -120,15 +120,15 @@ class HallucinationExperiment:
             
             self.results.append(method_results)
         
-        # 2. 对比分析
+        #2. Comparative analysis
         comparison_results = self._compare_methods()
         
-        # 3. MIQP优化效果分析
+        # 3. MIQPOptimization effect analysis
         miqp_analysis = {}
         if self.config.enable_miqp_analysis and miqp_data:
             miqp_analysis = self._analyze_miqp_effects(miqp_data)
         
-        # 4. 生成报告
+        #4. Generate reports
         final_results = {
             'individual_results': self.results,
             'comparison_analysis': comparison_results,
@@ -136,13 +136,13 @@ class HallucinationExperiment:
             'summary_statistics': self._generate_summary_statistics()
         }
         
-        # 5. 保存结果和生成可视化
+        #5. Save results and generate visualizations
         self._save_results(final_results)
         
         if self.config.generate_plots:
             self._generate_visualizations(final_results)
         
-        self.logger.info("实验完成")
+        self.logger.info("Experiment completed")
         return final_results
     
     def _evaluate_method(self,
@@ -151,23 +151,23 @@ class HallucinationExperiment:
                         world_graph_sequence: List[Dict[str, Any]],
                         ground_truth_sequence: List[Dict[str, Any]],
                         miqp_assignments: Optional[List[np.ndarray]] = None) -> Dict[str, Any]:
-        """评估单个方法的幻觉程度"""
+        """Evaluate the degree of hallucination of an individual method"""
         
-        # 1. 上下文一致性评估
+        #1. Contextual consistency assessment
         coherence_metrics = None
         if self.coherence_evaluator:
             coherence_metrics = self.coherence_evaluator.evaluate_coherence(
                 planning_trace, world_graph_sequence, miqp_assignments
             )
         
-        # 2. 事实一致性评估
+        #2. Factual consistency assessment
         truthfulness_metrics = None
         if self.truthfulness_evaluator:
             truthfulness_metrics = self.truthfulness_evaluator.evaluate_truthfulness(
                 planning_trace, world_graph_sequence, ground_truth_sequence
             )
         
-        # 3. 计算综合幻觉指标
+        #3. Calculate the comprehensive hallucination index
         hallucination_metrics = self._calculate_hallucination_metrics(
             coherence_metrics, truthfulness_metrics, miqp_assignments
         )
@@ -184,24 +184,24 @@ class HallucinationExperiment:
                                        coherence_metrics: Optional[CoherenceMetrics],
                                        truthfulness_metrics: Optional[TruthfulnessMetrics],
                                        miqp_assignments: Optional[List[np.ndarray]]) -> HallucinationMetrics:
-        """计算综合幻觉指标"""
+        """Calculating the Comprehensive Illusion Index"""
         
-        # 计算幻觉程度（越低越好）
+        #Calculate the degree of hallucination (lower is better)
         hallucination_components = []
         
         if coherence_metrics:
-            # 不连贯程度 = 1 - 连贯性
+            #degree of incoherence=1 - Continuity
             incoherence = 1.0 - coherence_metrics.overall_coherence
             hallucination_components.append(incoherence)
         
         if truthfulness_metrics:
-            # 不真实程度 = 1 - 真实性
+            #degree of unreality=1 - Authenticity
             untruthfulness = 1.0 - truthfulness_metrics.overall_truthfulness
             hallucination_components.append(untruthfulness)
         
         hallucination_score = np.mean(hallucination_components) if hallucination_components else 0.0
         
-        # 计算可靠性评分（越高越好）
+        #Calculate reliability score (higher is better)
         reliability_components = []
         
         if coherence_metrics:
@@ -212,12 +212,12 @@ class HallucinationExperiment:
         
         reliability_score = np.mean(reliability_components) if reliability_components else 1.0
         
-        # MIQP优化效果（如果有的话）
+        # MIQPOptimization effect (if any)
         miqp_improvement = 0.0
         constraint_satisfaction = 1.0
         
         if miqp_assignments:
-            # 计算MIQP带来的改善
+            #calculateMIQPimprovements brought about
             miqp_improvement = self._calculate_miqp_improvement(miqp_assignments)
             constraint_satisfaction = self._calculate_constraint_satisfaction(miqp_assignments)
         
@@ -234,14 +234,14 @@ class HallucinationExperiment:
                           planning_trace: List[str],
                           coherence_metrics: Optional[CoherenceMetrics],
                           truthfulness_metrics: Optional[TruthfulnessMetrics]) -> Dict[str, Any]:
-        """详细分析"""
+        """Detailed analysis"""
         
         analysis = {
             'trace_length': len(planning_trace),
             'avg_step_length': np.mean([len(step) for step in planning_trace]),
         }
         
-        # 添加连贯性分析
+        #Add coherence analysis
         if coherence_metrics:
             analysis.update({
                 'semantic_coherence_breakdown': self._analyze_semantic_coherence(planning_trace),
@@ -249,7 +249,7 @@ class HallucinationExperiment:
                 'action_coherence_patterns': self._analyze_action_patterns(planning_trace)
             })
         
-        # 添加真实性分析
+        #Add authenticity analysis
         if truthfulness_metrics:
             analysis.update({
                 'factual_error_types': self._categorize_factual_errors(planning_trace),
@@ -260,10 +260,10 @@ class HallucinationExperiment:
         return analysis
     
     def _compare_methods(self) -> Dict[str, Any]:
-        """对比不同方法的表现"""
+        """Compare the performance of different methods"""
         
         if len(self.results) < 2:
-            return {"message": "需要至少两种方法进行对比"}
+            return {"message": "At least two methods are needed for comparison"}
         
         comparison = {
             'hallucination_ranking': [],
@@ -273,7 +273,7 @@ class HallucinationExperiment:
             'statistical_significance': {}
         }
         
-        # 排序方法
+        #Sorting method
         methods_by_hallucination = sorted(
             self.results, 
             key=lambda x: x['hallucination_metrics'].hallucination_score
@@ -295,7 +295,7 @@ class HallucinationExperiment:
             for r in methods_by_reliability
         ]
         
-        # 详细对比
+        #Detailed comparison
         if self.config.enable_coherence:
             comparison['coherence_comparison'] = self._compare_coherence_metrics()
         
@@ -305,7 +305,7 @@ class HallucinationExperiment:
         return comparison
     
     def _analyze_miqp_effects(self, miqp_data: Dict[str, List[np.ndarray]]) -> Dict[str, Any]:
-        """分析MIQP优化的效果"""
+        """analyzeMIQPOptimization effect"""
         
         analysis = {
             'optimization_effectiveness': {},
@@ -315,30 +315,30 @@ class HallucinationExperiment:
         }
         
         for method_name, assignments in miqp_data.items():
-            # 分析优化效果
+            #Analyze optimization effects
             analysis['optimization_effectiveness'][method_name] = {
                 'avg_assignment_entropy': self._calculate_assignment_entropy(assignments),
                 'allocation_balance': self._calculate_allocation_balance(assignments),
                 'temporal_consistency': self._analyze_temporal_assignment_consistency(assignments)
             }
             
-            # 约束满足率
+            #constraint satisfaction rate
             analysis['constraint_satisfaction_rates'][method_name] = \
                 self._calculate_constraint_satisfaction(assignments)
             
-            # 任务分配效率
+            #task allocation efficiency
             analysis['task_allocation_efficiency'][method_name] = \
                 self._calculate_allocation_efficiency(assignments)
         
         return analysis
     
     def _generate_summary_statistics(self) -> Dict[str, Any]:
-        """生成汇总统计"""
+        """Generate summary statistics"""
         
         if not self.results:
             return {}
         
-        # 提取所有指标
+        #Extract all indicators
         hallucination_scores = [r['hallucination_metrics'].hallucination_score for r in self.results]
         reliability_scores = [r['hallucination_metrics'].reliability_score for r in self.results]
         
@@ -385,68 +385,68 @@ class HallucinationExperiment:
         return summary
     
     def _save_results(self, results: Dict[str, Any]):
-        """保存实验结果"""
+        """Save experiment results"""
         
-        # 保存完整结果
+        #Save complete results
         with open(self.output_dir / 'full_results.json', 'w', encoding='utf-8') as f:
-            # 转换为可序列化格式
+            #Convert to serializable format
             serializable_results = self._make_serializable(results)
             json.dump(serializable_results, f, indent=2, ensure_ascii=False)
         
-        # 保存汇总表格
+        #Save summary table
         summary_df = self._create_summary_dataframe()
         summary_df.to_csv(self.output_dir / 'summary_table.csv', index=False)
         
-        # 保存详细日志
+        #Save detailed log
         if self.config.save_detailed_logs:
             self._save_detailed_logs()
         
-        self.logger.info(f"结果已保存到: {self.output_dir}")
+        self.logger.info(f"Results have been saved to: {self.output_dir}")
     
     def _generate_visualizations(self, results: Dict[str, Any]):
-        """生成可视化图表"""
+        """Generate visualization charts"""
         
-        # 1. 幻觉程度对比图
+        #1. Comparison chart of hallucination levels
         self._plot_hallucination_comparison()
         
-        # 2. 可靠性评分对比图
+        #2. Reliability score comparison chart
         self._plot_reliability_comparison()
         
-        # 3. 连贯性和真实性散点图
+        #3. Coherence and Authenticity Scatter Plot
         self._plot_coherence_vs_truthfulness()
         
-        # 4. MIQP优化效果图
+        # 4. MIQPOptimization renderings
         if self.config.enable_miqp_analysis:
             self._plot_miqp_effects()
         
-        # 5. 雷达图对比
+        #5. Radar chart comparison
         self._plot_radar_comparison()
         
-        self.logger.info(f"可视化图表已保存到: {self.output_dir}")
+        self.logger.info(f"Visualization saved to: {self.output_dir}")
     
-    # 辅助方法实现
+    #Auxiliary method implementation
     def _calculate_miqp_improvement(self, assignments: List[np.ndarray]) -> float:
-        """计算MIQP带来的改善"""
-        # 简化实现，实际应该基于具体的优化目标
+        """calculateMIQPimprovements brought about"""
+        #Simplified implementation should actually be based on specific optimization goals
         if not assignments:
             return 0.0
         
-        # 计算分配的稳定性和效率
+        #Calculate allocation stability and efficiency
         assignment_variance = np.var([np.sum(a) for a in assignments if a is not None])
-        improvement = max(0.0, 1.0 - assignment_variance / 10.0)  # 归一化
+        improvement = max(0.0, 1.0 - assignment_variance / 10.0)  #normalization
         return improvement
     
     def _calculate_constraint_satisfaction(self, assignments: List[np.ndarray]) -> float:
-        """计算约束满足度"""
+        """Calculate constraint satisfaction"""
         if not assignments:
             return 1.0
         
-        # 简化实现：检查分配是否合理
+        #Simplified implementation: check whether the allocation is reasonable
         valid_assignments = sum(1 for a in assignments if a is not None and np.sum(a) > 0)
         return valid_assignments / len(assignments)
     
     def _make_serializable(self, obj):
-        """将对象转换为可序列化格式"""
+        """Convert object to serializable format"""
         if isinstance(obj, dict):
             return {k: self._make_serializable(v) for k, v in obj.items()}
         elif isinstance(obj, list):
@@ -459,7 +459,7 @@ class HallucinationExperiment:
             return obj
     
     def _create_summary_dataframe(self) -> pd.DataFrame:
-        """创建汇总数据表"""
+        """Create summary data table"""
         data = []
         
         for result in self.results:
@@ -492,7 +492,7 @@ class HallucinationExperiment:
         
         return pd.DataFrame(data)
     
-    # 占位符方法（需要根据具体需求实现）
+    #Placeholder method (needs to be implemented according to specific needs)
     def _analyze_semantic_coherence(self, planning_trace: List[str]) -> Dict[str, Any]:
         return {"placeholder": "semantic_analysis"}
     

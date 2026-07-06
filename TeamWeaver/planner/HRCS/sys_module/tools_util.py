@@ -7,15 +7,15 @@ def clamp(x, m, M):
 
 def get_task_assignment(alpha):
     """
-    根据alpha矩阵确定任务分配，与MATLAB版本保持一致
+    Determine task assignment from alpha matrix (MATLAB-compatible)
     """
-    # 找出每个机器人分配的任务（最大alpha值对应的任务）
-    task_assignment = np.argmax(alpha, axis=0) + 1  # +1转为1-based索引
+    # Find each robot's assigned task (max alpha column)
+    task_assignment = np.argmax(alpha, axis=0) + 1  # +1convert to 1-based index
     
-    # 检查是否有机器人未分配任务（所有alpha值接近0）
+    # Check for unassigned robots (all alpha near zero)
     for i in range(alpha.shape[1]):
-        if np.max(alpha[:, i]) < 1e-3:  # 使用max而不是norm
-            task_assignment[i] = 0  # 使用0表示未分配任务
+        if np.max(alpha[:, i]) < 1e-3:  #usemaxinstead ofnorm
+            task_assignment[i] = 0  # use 0 for unassigned
     
     return task_assignment
 
@@ -83,15 +83,15 @@ def plot_quad(h_quad, x_traj):
     return h_quad
 
 def plot_fov(h_fov, x, task_assignment):
-    idx_task_2 = np.where(task_assignment == 2)[0]  # 执行任务2的机器人索引
+    idx_task_2 = np.where(task_assignment == 2)[0]  # robot indices executing task 2
     if len(idx_task_2) == 0:
         return h_fov
         
     xy_robot = x[0:2, idx_task_2]
     th_cam = x[2, idx_task_2]
     L = 100
-    # 修正视场角度为MATLAB中的值
-    TH = np.pi/72  # 使用与MATLAB相同的视场角
+    # Fix FOV angle to MATLAB value
+    TH = np.pi/72  # use same FOV as MATLAB
     
     if not h_fov:
         h_fov = [None] * len(idx_task_2)
@@ -123,7 +123,7 @@ def read_mud_file(filename='mud.txt'):
                 current_array = y_mud_data
                 continue
             if current_array is not None and line:
-                # 处理每行数据，去除逗号和多余的空格
+                # Process each line; strip commas and extra spaces
                 values = line.replace(',', ' ').split()
                 for val in values:
                     if val and val.replace('.', '', 1).replace('-', '', 1).isdigit():
@@ -131,8 +131,8 @@ def read_mud_file(filename='mud.txt'):
         return np.array(x_mud_data), np.array(y_mud_data)
     
     except Exception as e:
-        print(f"读取mud文件出错: {e}")
-        # 返回默认的简单mud区域作为备用
+        print(f"Error reading mud file: {e}")
+        # Return default simple mud region as fallback
         return np.array([-0.5, 0.5, 0.5, -0.5, -0.5]), np.array([-0.5, -0.5, 0.5, 0.5, -0.5])
 
 def x_perimeter_ring(t, p_transport_t):

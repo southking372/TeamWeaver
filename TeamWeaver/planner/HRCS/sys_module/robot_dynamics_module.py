@@ -3,22 +3,22 @@ import numpy as np
 
 class RobotDynamicsConfig:
     """
-    机器人动力学配置类，用于管理机器人动力学参数
-    采用差速驱动模型: dx/dt = f(x) + g(x)u
-    状态 x = [x, y, θ]
-    控制 u = [v, ω] (线速度, 角速度)
+    Robot dynamics configuration class, used to manage robot dynamics parameters
+    Adopt differential drive model: dx/dt = f(x) + g(x)u
+    status x = [x, y, θ]
+    control u = [v, ω] (linear speed, Angular velocity)
     """
 
     def __init__(self, n_x=3, n_u=2):
         """
-        初始化机器人动力学配置
+        Initialize robot dynamics configuration
 
-        参数:
-            n_x: 状态维度，默认为3 (x, y, θ)
-            n_u: 控制输入维度，默认为2 (v, ω)
+        Parameters:
+            n_x: Status dimension, default is 3 (x, y, θ)
+            n_u: controlInput dimension, default is 2 (v, ω)
         """
         if n_x != 3 or n_u != 2:
-            print(f"警告: 当前 RobotDynamicsConfig 实现主要针对 n_x=3, n_u=2。收到的 n_x={n_x}, n_u={n_u}")
+            print(f"warn: The current RobotDynamicsConfig implementation mainly targets n_x=3, n_u=2。n_x received={n_x}, n_u={n_u}")
             n_x = 3
             n_u = 2
 
@@ -28,17 +28,17 @@ class RobotDynamicsConfig:
 
     def _initialize_robot_dynamics(self):
         """
-        初始化差速驱动模型的 f(x) 和 g(x)
+        Initialize f of the differential drive model(x) and g(x)
         dx/dt = f(x) + g(x)u
         f(x) = [0, 0, 0]^T
         g(x) = [[cos(theta), 0], [sin(theta), 0], [0, 1]]
         """
         def f(x):
-            # 无漂移项
+            # No drift term
             return np.zeros(self.n_x)
 
         def g(x):
-            # 控制输入矩阵
+            # controlinput matrix
             g_matrix = np.zeros((self.n_x, self.n_u))
             theta = x[2]
             g_matrix[0, 0] = np.cos(theta)
@@ -48,12 +48,12 @@ class RobotDynamicsConfig:
 
         def sys_dyn(x, u):
             """
-            计算连续时间状态导数 dx/dt = f(x) + g(x)u
+            Compute the continuous-time state derivative dx/dt = f(x) + g(x)u
             """
             if len(u) != self.n_u:
-                raise ValueError(f"控制输入 u 的维度应为 {self.n_u}, 但收到了 {len(u)}")
+                raise ValueError(f"controlThe dimensions of input u should be {self.n_u}, but received {len(u)}")
             if len(x) != self.n_x:
-                 raise ValueError(f"状态输入 x 的维度应为 {self.n_x}, 但收到了 {len(x)}")
+                 raise ValueError(f"The dimensions of the state input x should be {self.n_x}, but received {len(x)}")
             return f(x) + g(x) @ u
 
         return {
@@ -61,7 +61,7 @@ class RobotDynamicsConfig:
             'g': g,
             'n_x': self.n_x,
             'n_u': self.n_u,
-            'sys_dyn': sys_dyn # 代表 dx/dt
+            'sys_dyn': sys_dyn # stands for dx/dt
         }
 
     def get_robot_dynamics(self):
@@ -92,8 +92,8 @@ class RobotDynamicsConfig:
             n_x_local = self.n_x
             def updated_sys_dyn(x, u):
                 if len(u) != n_u_local:
-                     raise ValueError(f"控制输入 u 的维度应为 {n_u_local}, 但收到了 {len(u)}")
+                     raise ValueError(f"controlThe dimensions of input u should be {n_u_local}, but received {len(u)}")
                 if len(x) != n_x_local:
-                    raise ValueError(f"状态输入 x 的维度应为 {n_x_local}, 但收到了 {len(x)}")
+                    raise ValueError(f"The dimensions of the state input x should be {n_x_local}, but received {len(x)}")
                 return f_func(x) + g_func(x) @ u
             self.robot_dynamics['sys_dyn'] = updated_sys_dyn

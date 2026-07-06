@@ -75,105 +75,105 @@ class RTA:
         
     def solve_miqp(self, x, t):
         """
-        使用CVXPY解决MIQP优化问题
+        Using CVXPY to solve MIQP optimization problems
         
         Parameters:
         -----------
         x : numpy.ndarray
-            当前机器人状态
+            Current robot status
         t : float
-            当前时间
+            current time
             
         Returns:
         --------
         alpha : numpy.ndarray
-            任务分配二进制变量
+            task assignment binary variable
         u : numpy.ndarray
-            控制输入
+            controlinput
         delta : numpy.ndarray
-            松弛变量
+            slack variable
         time_to_solve_miqp : float
-            求解MIQP所需时间
+            Time required to solve MIQP
         opt_sol_info : str
-            优化求解状态信息
+            Optimization solution status information
         """
-        # 构建当前状态和时间的约束
+        # Construct constraints on current state and time
         self.build_constraints(x, t)
         
-        # 问题维度
+        # problem dimensions
         alpha_dim = self.dim_['n_r'] * self.dim_['n_t']
         u_dim = self.dim_['n_r'] * self.dim_['n_u']
         delta_dim = self.dim_['n_r'] * self.dim_['n_t']
         
-        # 开始计时
+        # Start timing
         start_time = time.time()
         
         try:
-            # 定义变量
-            alpha_var = cp.Variable(alpha_dim, boolean=True)  # 二进制变量
-            u_var = cp.Variable(u_dim)                        # 控制输入变量
-            delta_var = cp.Variable(delta_dim)                # 松弛变量
+            # Define variables
+            alpha_var = cp.Variable(alpha_dim, boolean=True)  # binary variable
+            u_var = cp.Variable(u_dim)                        # controlinput variables
+            delta_var = cp.Variable(delta_dim)                # slack variable
             
-            # 计算P_.T @ P_用于二次型
+            # Calculate P_.T @ P_for secondary type
             P_squared = self.P_.T @ self.P_
             
-            # 创建S的对角矩阵
+            # Create a diagonal matrix of S
             S_diag = np.diag(np.reshape(self.scenario_params_['S'], (-1)))
             
-            # 目标函数
+            # objective function
             alpha_cost = 1e6 * max(1, self.opt_params_['l']) * cp.quad_form(alpha_var, P_squared)
             u_cost = cp.quad_form(u_var, np.eye(u_dim))  # u_var' * u_var
             delta_cost = self.opt_params_['l'] * cp.quad_form(delta_var, S_diag)
             
-            # 合并目标函数
+            # Combined objective function
             objective = cp.Minimize(alpha_cost + u_cost + delta_cost)
             
-            # 约束条件
+            # Constraints
             constraints = []
             
-            # 添加线性不等式约束: A_ineq * [alpha; u; delta] <= b_ineq
+            # Add linear inequality constraints: A_ineq * [alpha; u; delta] <= b_ineq
             all_vars_h = cp.hstack([alpha_var, u_var, delta_var])
             all_vars = all_vars_h.T
             constraints.append(self.constraints_['A_ineq'] @ all_vars <= self.constraints_['b_ineq'])
             
-            # 添加等式约束（放宽为不等式约束）: A_eq * [alpha; u; delta] <= b_eq
+            # Add equality constraints (relax to inequality constraints): A_eq * [alpha; u; delta] <= b_eq
             constraints.append(self.constraints_['A_eq'] @ all_vars <= self.constraints_['b_eq'])
             
-            # 添加变量边界约束
-            # alpha的边界约束
+            # Add variable boundary constraints
+            # alphaboundary constraints
             constraints.append(alpha_var >= self.constraints_['lb'][:alpha_dim])
             constraints.append(alpha_var <= self.constraints_['ub'][:alpha_dim])
             
-            # delta的边界约束
+            # deltaboundary constraints
             lb_idx = alpha_dim + u_dim
             constraints.append(delta_var >= self.constraints_['lb'][lb_idx:lb_idx+delta_dim])
             constraints.append(delta_var <= self.constraints_['ub'][lb_idx:lb_idx+delta_dim])
             
-            # 构建并求解问题
+            # Build and solve problems
             problem = cp.Problem(objective, constraints)
             
-            # 设置求解器参数
+            # Set solver parameters
             solve_params = {
-                'NumericFocus': 3,  # 提高数值精度
-                'FeasibilityTol': 1e-9,  # 提高可行性容差
-                'OptimalityTol': 1e-9,  # 提高最优性容差
-                'IntFeasTol': 1e-9  # 提高整数可行性容差
+                'NumericFocus': 3,  # Improve numerical accuracy
+                'FeasibilityTol': 1e-9,  # Improve feasibility tolerance
+                'OptimalityTol': 1e-9,  # Increase optimality tolerance
+                'IntFeasTol': 1e-9  # Improve integer feasibility tolerance
             }
             
-            # 求解问题
+            # solve problems
             problem.solve(solver=cp.GUROBI, verbose=False, **solve_params)
             
-            # 计算求解时间
+            # Calculate solution time
             time_to_solve_miqp = time.time() - start_time
             
-            # 提取结果
+            # Extract results
             if problem.status == cp.OPTIMAL:
                 alpha = alpha_var.value
                 u = u_var.value
                 delta = delta_var.value
                 opt_sol_info = "Optimal"
             else:
-                print(f"优化未收敛，状态: {problem.status}")
+                print(f"Optimization has not converged, status: {problem.status}")
                 alpha = np.zeros(alpha_dim)
                 u = np.zeros(u_dim)
                 delta = np.zeros(delta_dim)
@@ -184,7 +184,7 @@ class RTA:
             return alpha, u, delta, time_to_solve_miqp, opt_sol_info
             
         except cp.error.SolverError as e:
-            print(f"CVXPY求解器错误: {e}")
+            print(f"CVXPYSolver error: {e}")
             return np.zeros(alpha_dim), np.zeros(u_dim), np.zeros(delta_dim), 0, "Error"
         
     def solve_reduced_qp(self, x, alpha, t):
@@ -362,7 +362,7 @@ class RTA:
         A_ineq = np.zeros((total_ineq, total_vars))
         b_ineq = np.zeros(total_ineq)
         A_eq = np.zeros((n_r, total_vars))
-        b_eq = np.ones(n_r) # 应该是全1的矩阵
+        b_eq = np.ones(n_r) # It should be a matrix of all ones
         # b_eq = np.zeros(n_r) 
         lb = -np.inf * np.ones(total_vars)
         ub = np.inf * np.ones(total_vars)
@@ -371,7 +371,7 @@ class RTA:
         lb[:n_r*n_t] = np.zeros(n_r*n_t)
         ub[:n_r*n_t] = np.ones(n_r*n_t)
         
-        # Set bounds for u (添加输入约束)
+        # Set bounds for u (Add input constraints)
         # lb[n_r*n_t:n_r*n_t+n_r*n_u] = -10.0 * np.ones(n_r*n_u)
         # ub[n_r*n_t:n_r*n_t+n_r*n_u] = 10.0 * np.ones(n_r*n_u)
         
@@ -379,54 +379,54 @@ class RTA:
         lb[n_r*n_t+n_r*n_u:] = np.zeros(n_r*n_t)
         ub[n_r*n_t+n_r*n_u:] = self.opt_params_['delta_max'] * np.ones(n_r*n_t)
         
-        # 获取全局变量
+        # Get global variables
         global_vars_dict = None
         if self.global_vars_manager_ is not None:
             try:
                 global_vars_dict = self.global_vars_manager_.get_all_vars()
-                # print(f"成功获取全局变量管理器，变量数量: {len(global_vars_dict)}")
+                # print(f"Successfully obtained the global variable manager, variable count: {len(global_vars_dict)}")
             except Exception as e:
-                print(f"从管理器获取全局变量时出错: {e}")
+                print(f"Error getting global variables from manager: {e}")
         else:
-            print("警告: RTA 未设置 GlobalVarsManager。")
+            print("warn: RTA GlobalVarsManager is not set.")
         
         # Task CBFs and delta-alpha constraints
         for i in range(n_r):
             for j in range(n_t):
                 # CBFs for tasks
-                idx = i*n_t + j  # 对应MATLAB中的 (i-1)*n_t+j
+                idx = i*n_t + j  # Corresponds to MATLAB (i-1)*n_t+j
                 task = self.scenario_params_['tasks'][j]
                 robot_dyn = self.scenario_params_['robot_dyn']
                 
-                # 使用全局变量字典调用任务函数
+                # Use global vars dict to call the task function
                 if global_vars_dict is not None:
-                    # 调用任务函数并传递全局变量字典
+                    # Call the task function and pass the global vars dict
                     task_func_value = task['function'](x[:, i], t, i, vars_dict=global_vars_dict)
                     task_grad_value = task['gradient'](x[:, i], t, i, vars_dict=global_vars_dict)
                     task_time_deriv_value = task['time_derivative'](x[:, i], t, i, vars_dict=global_vars_dict)
                 else:
-                    # 没有全局变量管理器，正常调用函数
+                    # There is no global variable manager, and the function is called normally
                     task_func_value = task['function'](x[:, i], t, i)
                     task_grad_value = task['gradient'](x[:, i], t, i) 
                     task_time_deriv_value = task['time_derivative'](x[:, i], t, i)
                 
-                # 对应MATLAB: n_r*n_t+(i-1)*n_u+1 : n_r*n_t+i*n_u
+                # Corresponds to MATLAB: n_r*n_t+(i-1)*n_u+1 : n_r*n_t+i*n_u
                 A_ineq[idx, n_r*n_t+i*n_u:n_r*n_t+(i+1)*n_u] = -task_grad_value @ robot_dyn['g'](x[:, i])
                 b_ineq[idx] = (task_grad_value @ robot_dyn['f'](x[:, i]) + 
                               task_time_deriv_value + 
                               self.opt_params_['gamma'](task_func_value))
                 
                 # delta-alpha constraints
-                # 对应MATLAB: n_r*n_t+(i-1)*n_t^2+(j-1)*n_t+1 : n_r*n_t+(i-1)*n_t^2+j*n_t
+                # Corresponds to MATLAB: n_r*n_t+(i-1)*n_t^2+(j-1)*n_t+1 : n_r*n_t+(i-1)*n_t^2+j*n_t
                 base_idx = n_r*n_t + i*n_t**2 + j*n_t
                 
-                # 对应MATLAB中的整行赋值
+                # Corresponds to the entire row assignment in MATLAB
                 A_ineq[base_idx:base_idx+n_t, i*n_t:(i+1)*n_t] = self.opt_params_['delta_max'] * self.onec(n_t, j)
                 A_ineq[base_idx:base_idx+n_t, n_r*n_t+n_r*n_u+i*n_t:n_r*n_t+n_r*n_u+(i+1)*n_t] = -1/self.opt_params_['kappa'] * np.eye(n_t) + self.onec(n_t, j)
             
-            # alpha_i sum up to 1 (等式约束)
-            # 注意：在MATLAB版本中，这是一个等式约束，但在这里我们使用不等式约束以提高可行性
-            # 原始MATLAB: this.constraints_.A_eq(i,(i-1)*this.dim_.n_t+1:i*this.dim_.n_t) = ones(1, this.dim_.n_t);
+            # alpha_i sum up to 1 (Equality constraints)
+            # NOTE: In MATLAB version this is an equality constraint but here we use inequality constraint for better feasibility
+            # Original MATLAB: this.constraints_.A_eq(i,(i-1)*this.dim_.n_t+1:i*this.dim_.n_t) = ones(1, this.dim_.n_t);
             A_eq[i, (i*n_t):((i+1)*n_t)] = np.ones(n_t)
         
         # CBFs for tasks - additional constraints
@@ -467,7 +467,7 @@ class RTA:
         # Sort and remove from the end to avoid index shifting
         to_remove.sort(reverse=True)
         for idx in to_remove:
-            if idx < A_ineq.shape[0]:  # 确保索引有效
+            if idx < A_ineq.shape[0]:  # Make sure the index is valid
                 A_ineq = np.delete(A_ineq, idx, axis=0)
                 b_ineq = np.delete(b_ineq, idx)
         
@@ -509,16 +509,16 @@ class RTA:
         lb[n_r*n_t+n_r*n_u:] = np.zeros(n_r*n_t)
         ub[n_r*n_t+n_r*n_u:] = self.opt_params_['delta_max'] * np.ones(n_r*n_t)
         
-        # 获取全局变量
+        # Get global variables
         global_vars_dict = None
         if self.global_vars_manager_ is not None:
             try:
                 global_vars_dict = self.global_vars_manager_.get_all_vars()
-                # print(f"build_reduced_constraints: 成功获取全局变量管理器，变量数量: {len(global_vars_dict)}")
+                # print(f"build_reduced_constraints: Successfully obtained the global variable manager, variable count: {len(global_vars_dict)}")
             except Exception as e:
-                print(f"build_reduced_constraints: 从管理器获取全局变量时出错: {e}")
+                print(f"build_reduced_constraints: Error getting global variables from manager: {e}")
         else:
-            print("build_reduced_constraints: 警告: RTA 未设置 GlobalVarsManager。")
+            print("build_reduced_constraints: warn: RTA GlobalVarsManager is not set.")
         
         # Task CBFs and delta-alpha constraints
         for i in range(n_r):
@@ -528,14 +528,14 @@ class RTA:
                 task = self.scenario_params_['tasks'][j]
                 robot_dyn = self.scenario_params_['robot_dyn']
                 
-                # 使用全局变量字典调用任务函数
+                # Use global vars dict to call the task function
                 if global_vars_dict is not None:
-                    # 调用任务函数并传递全局变量字典
+                    # Call the task function and pass the global vars dict
                     task_func_value = task['function'](x[:, i], t, i, vars_dict=global_vars_dict)
                     task_grad_value = task['gradient'](x[:, i], t, i, vars_dict=global_vars_dict)
                     task_time_deriv_value = task['time_derivative'](x[:, i], t, i, vars_dict=global_vars_dict)
                 else:
-                    # 没有全局变量管理器，正常调用函数
+                    # There is no global variable manager, and the function is called normally
                     task_func_value = task['function'](x[:, i], t, i)
                     task_grad_value = task['gradient'](x[:, i], t, i) 
                     task_time_deriv_value = task['time_derivative'](x[:, i], t, i)
@@ -592,14 +592,14 @@ class RTA:
         # Evaluate F
         for k in range(n_c):
             if self.scenario_params_['ws'] is not None and len(self.scenario_params_['ws']) > 0:
-                # 如果提供了权重
+                # If weights are provided
                 W_k = np.diag(self.scenario_params_['ws'][k])
                 self.scenario_params_['F'][k, :] = np.max(W_k @ ((self.scenario_params_['Hs'][k] @ self.scenario_params_['A']) > 0.999), axis=0)
             else:
-                # 如果没有提供权重
+                # If no weight is provided
                 self.scenario_params_['F'][k, :] = np.max((self.scenario_params_['Hs'][k] @ self.scenario_params_['A']) > 0.999, axis=0)
         
-        # Evaluate S - 使用double确保结果是浮点数
+        # Evaluate S - Use double to ensure the result is a floating point number
         self.scenario_params_['S'] = ((self.scenario_params_['T'] @ self.scenario_params_['F']) > 0.999).astype(float)
         
         # Build projector

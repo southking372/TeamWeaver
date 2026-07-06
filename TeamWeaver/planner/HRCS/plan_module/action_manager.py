@@ -8,7 +8,7 @@ class ActionManager:
         self.last_parsed_actions = {}
         self.action_history = []
         
-        # 集成位置验证器
+        #Integrated location validator
         self.action_validator = ActionValidator(position_threshold=2.0)
 
     def reset(self):
@@ -29,22 +29,22 @@ class ActionManager:
         execution_manager
     ) -> Dict[int, Tuple[str, str, Optional[str]]]:
         """
-        解析并验证LLM响应中的高级动作
+parse and verifyLLMAdvanced actions in response
         Returns:
-            验证后的高级动作字典
+Verified advanced action dictionary
         """
         
-        # Step 1: 解析LLM响应
+        # Step 1:parseLLMresponse
         print(f"[ActionManager] Step 1: Parsing LLM response...")
         parsed_actions = self.parse_high_level_actions(llm_response, agents)
         
-        # Step 2: 位置验证和智能修正
+        # Step 2:Location verification and smart corrections
         print(f"[ActionManager] Step 2: Validating with context...")
         validated_actions = self.action_validator.validate_actions_with_context(
             parsed_actions, world_graph, execution_manager, agents
         )
         
-        # Step 3: 记录到历史
+        # Step 3:recorded in history
         self.action_history.append({
             'original': parsed_actions,
             'validated': validated_actions,
@@ -60,15 +60,15 @@ class ActionManager:
 
     def parse_high_level_actions(self, llm_response: str, agents) -> Dict[int, Tuple[str, str, Optional[str]]]:
         """
-        解析LLM响应中的高级动作
+        Parse high-level actions from LLM response
 
-        :param llm_response: LLM生成的响应
-        :return: 解析出的高级动作字典
+        :param llm_response: LLM-generated response
+        :return: parsed high-level action dict
         """
         try:
             return self.actions_parser(agents, llm_response, self.params)
         except Exception as e:
-            print(f"[ERROR] 高级动作解析失败: {e}")
+            print(f"[ERROR] High-level action parsing failed: {e}")
             return {
                 agent.uid: ("Explore", "environment", None) 
                 for agent in agents
@@ -82,8 +82,8 @@ class ActionManager:
         agents
     ) -> Dict[int, Tuple[str, str, Optional[str]]]:
         """
-        **重构为目标导向验证**：验证LLM动作是否有助于实现阶段目标，
-        而不是强制替换为子任务类型。保持LLM的智能决策能力。
+        **Refactoring into goal-directed verification**:verifyLLMWhether the action helps achieve the stage goal,
+Instead of forcing replacement with subtask type. KeepLLMintelligent decision-making capabilities.
         """
         adjusted_actions = {}
         
@@ -97,37 +97,37 @@ class ActionManager:
                 print(f"    Agent {agent_id}: No assigned objectives, keeping LLM decision: {adjusted_actions[agent_id][0]}")
                 continue
 
-            # 获取主要目标
+            #Get main target
             primary_objective = assigned_tasks[0]
             objective_type = primary_objective.get('task_type', 'Unknown')
             objective_target = primary_objective.get('target', 'Unknown')
             
             if not action_tuple or not action_tuple[0]:
-                # LLM没有生成有效动作，提供目标导向的建议
+                # LLMNo effective actions are generated, providing goal-oriented suggestions
                 suggested_action = self._suggest_action_for_objective(primary_objective, action_tuple)
                 adjusted_actions[agent_id] = suggested_action
                 print(f"    Agent {agent_id}: LLM provided no action for objective '{objective_type}→{objective_target}', suggesting: {suggested_action[0]}")
             else:
-                # LLM生成了动作，验证是否有助于目标实现
+                # LLMGenerate actions to verify whether they help achieve the goal
                 llm_action, llm_target, llm_error = action_tuple
                 
                 if self._action_advances_objective(llm_action, llm_target, primary_objective):
-                    # LLM的动作有助于目标实现，保持不变
+                    # LLMactions that contribute to goal achievement and remain unchanged
                     adjusted_actions[agent_id] = action_tuple
                     print(f"    Agent {agent_id}: LLM action '{llm_action}[{llm_target}]' advances objective '{objective_type}→{objective_target}' ✓")
                 else:
-                    # LLM的动作可能偏离目标，提供目标导向的建议但保持一定灵活性
+                    # LLMThe actions may deviate from the target, providing goal-oriented suggestions but maintaining a certain degree of flexibility
                     if self._is_exploration_reasonable(llm_action, primary_objective):
-                        # 如果是合理的探索行为，允许执行
+                        #If it is reasonable exploration behavior, execution is allowed
                         adjusted_actions[agent_id] = action_tuple
                         print(f"    Agent {agent_id}: LLM action '{llm_action}[{llm_target}]' is reasonable exploration for objective '{objective_type}→{objective_target}' ✓")
                     else:
-                        # 提供更好的建议
+                        #Provide better advice
                         suggested_action = self._suggest_action_for_objective(primary_objective, action_tuple)
                         adjusted_actions[agent_id] = suggested_action
                         print(f"    Agent {agent_id}: LLM action '{llm_action}[{llm_target}]' may not advance objective '{objective_type}→{objective_target}', suggesting: {suggested_action[0]}")
 
-        # 确保所有智能体都有动作
+        #Make sure all agents have actions
         for agent_id in range(len(agents)):
             if agent_id not in adjusted_actions:
                 adjusted_actions[agent_id] = ("Wait", "", None)
@@ -137,9 +137,9 @@ class ActionManager:
 
     def get_action_validation_summary(self) -> Dict[str, Any]:
         """
-        获取action验证的统计摘要
+getactionValidated statistical summary
         Returns:
-            包含验证统计信息的字典
+A dictionary containing validation statistics
         """
         if not self.action_history:
             return {"total_actions": 0, "corrections_made": 0, "correction_rate": 0.0}
@@ -169,45 +169,45 @@ class ActionManager:
 
     def _action_advances_objective(self, action_name: str, action_target: str, objective: Dict[str, Any]) -> bool:
         """
-        判断给定的动作是否有助于实现目标
+Determine whether a given action will help achieve a goal
         """
         objective_type = objective.get('task_type', '')
         objective_target = objective.get('target', '')
         
-        # 直接匹配：动作类型与目标类型相同，且目标对象相同
+        #Direct match: The action type is the same as the target type, and the target object is the same
         if action_name == objective_type and action_target == objective_target:
             return True
         
-        # 逻辑链匹配：判断动作是否是实现目标的必要步骤
+        #Logical chain matching: Determine whether the action is a necessary step to achieve the goal
         if objective_type == 'Pick':
-            # Pick目标：Navigate到目标物体是有帮助的
+            # PickTarget:NavigateIt is helpful to reach the target object
             if action_name == 'Navigate' and action_target == objective_target:
                 return True
-            # Explore找到目标物体也是有帮助的
+            # ExploreIt is also helpful to find the target object
             if action_name == 'Explore':
-                return True  # 探索通常是有帮助的
+                return True  #Exploration is often helpful
                 
         elif objective_type == 'Place':
-            # Place目标：Navigate到放置位置是有帮助的
+            # PlaceTarget:Navigateto placement location is helpful
             if action_name == 'Navigate' and action_target == objective_target:
                 return True
-            # Pick已经持有的物体到目标位置也是有帮助的
+            # PickAlready holding the object to the target location is also helpful
             if action_name == 'Pick':
                 return True
                 
         elif objective_type == 'Navigate':
-            # Navigate目标：直接Navigate到目标是有帮助的
+            # NavigateGoal: DirectNavigateIt is helpful to reach the goal
             if action_name == 'Navigate' and action_target == objective_target:
                 return True
-            # Explore相关区域也是有帮助的
+            # ExploreRelated areas are also helpful
             if action_name == 'Explore':
                 return True
                 
         elif objective_type == 'Explore':
-            # Explore目标：直接Explore目标区域
+            # ExploreGoal: DirectExploretarget area
             if action_name == 'Explore' and action_target == objective_target:
                 return True
-            # Navigate到目标区域也有帮助
+            # NavigateIt also helps to get to the target area
             if action_name == 'Navigate':
                 return True
         
@@ -215,13 +215,13 @@ class ActionManager:
 
     def _is_exploration_reasonable(self, action_name: str, objective: Dict[str, Any]) -> bool:
         """
-        判断探索行为是否在目标实现的合理范围内
+Determine whether exploration behavior is within a reasonable range for goal achievement
         """
-        # Explore动作通常是合理的，特别是当目标需要寻找对象时
+        # ExploreActions are often justified, especially when the goal requires finding an object
         if action_name == 'Explore':
             return True
         
-        # Wait动作在某些情况下也是合理的（等待其他智能体完成前置条件）
+        # WaitActions are also justified in certain situations (waiting for other agents to complete preconditions)
         if action_name == 'Wait':
             return True
             
@@ -229,38 +229,38 @@ class ActionManager:
 
     def _suggest_action_for_objective(self, objective: Dict[str, Any], original_action: Tuple[str, str, Optional[str]]) -> Tuple[str, str, Optional[str]]:
         """
-        基于目标建议合适的动作，但尽量保持LLM的智能判断
+Suggest appropriate actions based on goals, but try to keepLLMintelligent judgment
         """
         objective_type = objective.get('task_type', '')
         objective_target = objective.get('target', '')
         
-        # 如果有原始动作且是Wait，可能表示智能体在等待，保持这个决策
+        #If there is a primitive action and isWait, may indicate that the agent is waiting to keep this decision
         if original_action and original_action[0] == 'Wait':
             return original_action
         
-        # 根据目标类型提供建议
+        #Provide recommendations based on target type
         if objective_type == 'Pick':
-            # Pick目标：建议先探索找到对象（除非已知对象位置）
-            return ('Explore', 'environment', None)  # 让LLM通过探索找到对象
+            # PickGoal: It is recommended to explore and find the object first (unless the object location is known)
+            return ('Explore', 'environment', None)  #letLLMFind objects through exploration
             
         elif objective_type == 'Place':
-            # Place目标：建议导航到放置位置
+            # PlaceTarget: Suggested navigation to drop location
             return ('Navigate', objective_target, None)
             
         elif objective_type == 'Navigate':
-            # Navigate目标：直接导航
+            # NavigateGoal: direct navigation
             return ('Navigate', objective_target, None)
             
         elif objective_type == 'Explore':
-            # Explore目标：直接探索
+            # ExploreGoal: Direct exploration
             return ('Explore', objective_target, None)
             
         else:
-            # 其他目标：转换为相应动作
+            #Other goals: Convert to corresponding actions
             return (objective_type, objective_target, None)
 
     def generate_action_from_subtask(self, subtask: Dict[str, Any]) -> Optional[Tuple[str, str, Optional[str]]]:
-        """从子任务生成动作"""
+        """Generate actions from subtasks"""
         task_type = subtask.get('task_type', '')
         target = subtask.get('target', '')
         

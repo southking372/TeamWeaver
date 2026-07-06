@@ -9,14 +9,14 @@ import numpy as np
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 
-# 基础配置与任务模块
+#Basic configuration and task module
 from class_def.task_module.GlobalVarsManager_task import GlobalVarsManager_task
 from task_utils.task_module.scenario_params_task import ScenarioConfigTask
 from task_utils.task_module.opt_params_task import OptimizationConfigTask
 from task_utils.task_module.simulation_module import SimulationConfig
 from class_def.task_module.baseline_planners import create_planner
 
-# 任务控制（用于可选的位姿推进）
+#Taskcontrol(for optionalposeadvance)
 from task_utils.task_module.navi_module import NaviTask
 from task_utils.task_module.explore_module import ExploreTask
 from task_utils.task_module.manipulation_module import ManipulationTask
@@ -35,17 +35,17 @@ from scenarios import (
 
 
 def reshape_alpha(alpha_vec, n_t, n_r):
-    """将扁平 alpha 按列主序重塑为 (n_t, n_r)。"""
+    """will flattenalphaReshape in column major order to(n_t, n_r)。"""
     return np.reshape(alpha_vec, (n_t, n_r), order="F")
 
 
 def assignment_from_alpha(alpha_mat):
-    """将 (n_t, n_r) 的 alpha 转换为每个机器人的任务编号列表（0-based）。"""
+    """Will(n_t, n_r)ofalphaConvert to a list of task numbers for each robot (0-based）。"""
     return np.argmax(alpha_mat, axis=0).tolist()
 
 
 def maybe_step_states(x, task_assignment, t, vars_dict, dt):
-    """可选: 用任务控制做一次简单的位姿推进（默认不开启）。"""
+    """Optional:Use taskscontrolDo it once simpleposeAdvance (not enabled by default)."""
     n_r = x.shape[1]
     for i in range(n_r):
         task_id = task_assignment[i]
@@ -72,28 +72,28 @@ def run_single_experiment(planner_type: str,
                           seed: int = 0):
     np.random.seed(seed)
 
-    # 初始化全局变量与场景/优化配置
+    #Initialize global variables and scenes/Optimize configuration
     global_vars = GlobalVarsManager_task()
     scenario_cfg = ScenarioConfigTask(n_u=2)
     opt_cfg = OptimizationConfigTask()
     scenario_params = scenario_cfg.get_scenario_params()
     opt_params = opt_cfg.get_opt_params()
 
-    # 模拟器（仅用于初始位姿与 dt 参数）
+    #Simulator (only for initial pose anddtparameter)
     sim_cfg = SimulationConfig()
     x = sim_cfg.get_initial_states().copy()
     n_x, n_r = x.shape
     n_t = scenario_params['T'].shape[0]
 
-    # 注册全局任务变量
+    #Register global task variables
     global_task_vars = scenario_cfg.get_global_task_vars()
     global_vars.register_vars_from_dict(global_task_vars)
     global_vars.x = x
 
-    # 规划器实例
+    #Planner instance
     planner = create_planner(planner_type, scenario_params, opt_params, global_vars)
 
-    # 存储度量
+    #Store metrics
     metrics_log = {
         'planner': planner_type,
         'dt': dt,
@@ -112,7 +112,7 @@ def run_single_experiment(planner_type: str,
         t = step * dt
         global_vars.set_var('t', t)
 
-        # 每 replan_every 步重规划一次
+        #Everyreplan_everyPlan once step by step
         if step % replan_every == 0:
             alpha_vec, u_vec, delta_vec, solve_time, _ = planner.solve_miqp(x, t)
             alpha_mat = reshape_alpha(alpha_vec, n_t, n_r)
@@ -121,33 +121,33 @@ def run_single_experiment(planner_type: str,
             assignment = assignment_from_alpha(alpha_mat)
             solve_time = 0.0
 
-        # 可选推进位姿
+        #Optional propulsion pose
         if enable_state_step:
             x = maybe_step_states(x, assignment, t, global_vars.get_all_vars(), dt)
             global_vars.x = x
 
-        # 计算 F 与能力相关度量
+        #calculateFAbility related measures
         F = compute_F_matrix(scenario_params)
         cap_metrics = compute_capability_utilization_metrics(alpha_mat, F, scenario_params['T'])
         min_robots = estimate_minimal_robot_count_per_task(F, scenario_params['T'])
 
-        # 并行度与切换
+        #Parallelism and switching
         par_sw = compute_parallelism_and_switching(assignment, prev_assignment, n_t)
 
-        # 动态变化: 在设定步数注入变化，然后重新创建规划器以反映 A/T 变化
+        #Dynamic changes:Inject changes at a set number of steps, then recreate the planner to reflectA/Tchange
         if (not changed_applied) and (dynamic_change_step is not None) and (step == dynamic_change_step):
             apply_dynamic_capability_drop(scenario_params, drop_ratio=0.5, feature_index_for_manipulation=2)
             append_exploration_targets(global_vars, num_new=2, radius=1.0)
-            # 重新创建规划器以刷新映射
+            #Recreate the planner to refresh the mapping
             planner = create_planner(planner_type, scenario_params, opt_params, global_vars)
             changed_applied = True
 
-        # 记录是否恢复（所有任务的覆盖率 >= 0.99 视为恢复）
+        #Whether the record is restored (coverage of all tasks>=0.99 deemed restored)
         if changed_applied and recovered_after_change_step is None:
             if np.all(np.array(cap_metrics['coverage_per_task']) >= 0.99):
                 recovered_after_change_step = step
 
-        # 记录一步的结果
+        #Record the results of one step
         metrics_log['per_step'].append({
             'step': step,
             'time': t,
@@ -166,7 +166,7 @@ def run_single_experiment(planner_type: str,
 
         prev_assignment = assignment
 
-    # 汇总
+    #Summary
     per_step = metrics_log['per_step']
     avg_coverage = float(np.mean([s['avg_coverage'] for s in per_step]))
     avg_parallel_ratio = float(np.mean([s['parallel_ratio'] for s in per_step]))
@@ -185,7 +185,7 @@ def run_single_experiment(planner_type: str,
 
 
 def main():
-    parser = argparse.ArgumentParser(description='MRTA 消融实验')
+    parser = argparse.ArgumentParser(description='MRTAablation experiment')
     parser.add_argument('--planner', type=str, default='all', choices=['all', 'miqp', 'greedy', 'linear_programming'])
     parser.add_argument('--steps', type=int, default=60)
     parser.add_argument('--dt', type=float, default=0.1)
@@ -210,7 +210,7 @@ def main():
         )
         results[p] = log
 
-    # 写入结果
+    #Write results
     out_dir = os.path.join(os.path.dirname(__file__), 'results')
     os.makedirs(out_dir, exist_ok=True)
     ts = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -218,7 +218,7 @@ def main():
     with open(out_path, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
 
-    print(f'结果已保存: {out_path}')
+    print(f'The result has been saved: {out_path}')
 
 
 if __name__ == '__main__':

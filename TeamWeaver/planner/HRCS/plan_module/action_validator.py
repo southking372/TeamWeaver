@@ -4,13 +4,13 @@ import math
 
 class ActionValidator:
     """
-    位置验证和智能修正模块，验证action的合理性，特别是空间位置前置条件
+    Position verification and intelligent correction module to verify the rationality of actions, especially the spatial position preconditions
     """
     
     def __init__(self, position_threshold: float = 2.0):
         """
         Args:
-            position_threshold: 距离阈值，agent需要在此距离内才能执行Pick动作
+            position_threshold: Distance threshold, the agent needs to be within this distance to perform the Pick action
         """
         self.position_threshold = position_threshold
         self.validation_history = []
@@ -27,9 +27,9 @@ class ActionValidator:
         agents: List[Any]
     ) -> Dict[int, Tuple[str, str, Optional[str]]]:
         """
-        基于上下文验证和修正actions
+        Validate and correct actions based on context
         Returns:
-            验证后修正的动作字典
+            Action dictionary corrected after verification
         """
         validated_actions = {}
         validation_log = []
@@ -44,11 +44,11 @@ class ActionValidator:
                 
             action_name, action_target, action_error = action_tuple
             
-            # 获取agent的历史上下文
+            # Get the historical context of the agent
             recent_actions = execution_manager.get_recent_actions(agent_id, lookback_steps=3)
             latest_observation = execution_manager.get_latest_observation(agent_id)
             
-            # 执行具体验证
+            # Perform specific verification
             validated_action = self._validate_single_action(
                 agent_id, action_name, action_target, action_error,
                 world_graph, recent_actions, latest_observation
@@ -56,18 +56,18 @@ class ActionValidator:
             
             validated_actions[agent_id] = validated_action
             
-            # 记录验证日志
+            # Record verification log
             if validated_action != action_tuple:
                 validation_log.append(
                     f"Agent {agent_id}: {action_name}[{action_target}] → "
-                    f"{validated_action[0]}[{validated_action[1]}] (修正)"
+                    f"{validated_action[0]}[{validated_action[1]}] (Correction)"
                 )
             else:
                 validation_log.append(
-                    f"Agent {agent_id}: {action_name}[{action_target}] ✓ (通过)"
+                    f"Agent {agent_id}: {action_name}[{action_target}] ✓ (pass)"
                 )
         
-        # 输出验证结果
+        # Output verification results
         if validation_log:
             print("[ActionValidator] Validation results:")
             for log_entry in validation_log:
@@ -86,28 +86,28 @@ class ActionValidator:
         latest_observation: Optional[str]
     ) -> Tuple[str, str, Optional[str]]:
         """
-        验证单个agent的action
+        Verify the action of a single agent
         Returns:
-            验证后的action tuple
+            Verified action tuple
         """
         
-        # 1. 如果action本身就有错误，直接返回Wait
+        # 1. If the action itself has an error, return Wait directly.
         if action_error:
             return ("Wait", "", f"Original action error: {action_error}")
         
-        # 2. Pick动作的特殊验证
+        # 2. PickSpecial validation of actions
         if action_name == "Pick":
             return self._validate_pick_action(
                 agent_id, action_target, world_graph, recent_actions, latest_observation
             )
         
-        # 3. Place动作的验证
+        # 3. PlaceVerification of actions
         elif action_name == "Place":
             return self._validate_place_action(
                 agent_id, action_target, world_graph, recent_actions, latest_observation
             )
         
-        # 4. 其他动作的基础验证
+        # 4. Basic verification of other actions
         else:
             return self._validate_general_action(
                 agent_id, action_name, action_target, recent_actions, latest_observation
@@ -122,15 +122,15 @@ class ActionValidator:
         latest_observation: Optional[str]
     ) -> Tuple[str, str, Optional[str]]:
         """
-        验证Pick动作的合理性
+        Verify the rationality of the Pick action
         
-        重点检查：
-        1. 是否有recent Navigate to target object
-        2. 或者当前位置是否足够接近目标物体
-        3. 如果都不满足，建议Navigate
+        Key points to check:
+        1. Is there a recent Navigate to target object?
+        2. Or whether the current position is close enough to the target object
+        3. If you are not satisfied with it, we recommend Navigate
         """
         
-        # 检查最近是否有Navigate到目标物体
+        # Check if there is a recent Navigate to the target object
         has_recent_navigation = False
         for action_name, action_target, _ in recent_actions:
             if action_name == "Navigate" and action_target == target_object:
@@ -138,20 +138,20 @@ class ActionValidator:
                 break
         
         if has_recent_navigation:
-            # 有recent navigation，Pick动作合理
+            # There is recent navigation, and the Pick action is reasonable
             return ("Pick", target_object, None)
         
-        # 检查当前位置是否足够接近目标物体
+        # Check if the current position is close enough to the target object
         if self._is_agent_close_to_object(agent_id, target_object, world_graph):
-            # 位置足够接近，Pick动作合理
+            # The location is close enough and the Pick action is reasonable
             return ("Pick", target_object, None)
         
-        # 检查是否有失败观察，如果有，建议Navigate
+        # Check if there are any failed observations, if so, recommend Navigate
         if latest_observation and ("not close enough" in latest_observation.lower() or 
                                   "failed to pick" in latest_observation.lower()):
             return ("Navigate", target_object, None)
         
-        # 其他情况：没有recent navigation且位置不够接近，建议先Navigate
+        # Other situations: There is no recent navigation and the location is not close enough. It is recommended to navigate first.
         return ("Navigate", target_object, None)
 
     def _validate_place_action(
@@ -163,29 +163,29 @@ class ActionValidator:
         latest_observation: Optional[str]
     ) -> Tuple[str, str, Optional[str]]:
         """
-        验证Place动作的合理性
-        检查：
-        1. 是否holding object
-        2. 是否接近目标位置
+        Verify the rationality of the Place action
+        Check:
+        1. Whether holding object
+        2. Is it close to the target position?
         """
         
-        # 检查是否有持有物体的迹象
+        # Check for signs of objects being held
         has_recent_pick = any(action_name == "Pick" for action_name, _, _ in recent_actions)
         
-        # 从观察中检查是否持有物体
+        # Check if object is held from observation
         is_holding_object = (latest_observation and 
                            ("held by" in latest_observation.lower() or 
                             "successful execution" in latest_observation.lower()))
         
         if not (has_recent_pick or is_holding_object):
-            # 没有持有物体，Place动作不合理，建议等待或探索
+            # There is no object being held and the Place action is unreasonable. It is recommended to wait or explore.
             return ("Wait", "", None)
         
-        # 检查是否接近目标位置
+        # Check if it is close to the target location
         if self._is_agent_close_to_location(agent_id, target_location, world_graph):
             return ("Place", target_location, None)
         
-        # 需要先导航到目标位置
+        # Need to navigate to the target location first
         return ("Navigate", target_location, None)
 
     def _validate_general_action(
@@ -197,20 +197,20 @@ class ActionValidator:
         latest_observation: Optional[str]
     ) -> Tuple[str, str, Optional[str]]:
         """
-        验证一般动作的合理性
+        Verify the rationality of general actions
         """
         
-        # 检查是否有重复的动作（可能陷入循环）
+        # Check if there are repeated actions (possibly stuck in a loop)
         recent_same_actions = [
             (name, target) for name, target, _ in recent_actions 
             if name == action_name and target == action_target
         ]
         
         if len(recent_same_actions) >= 2:
-            # 连续重复相同动作，可能有问题，建议等待
+            # If you repeat the same action continuously, there may be a problem. It is recommended to wait.
             return ("Wait", "", f"Avoiding repeated action: {action_name}[{action_target}]")
         
-        # 其他情况保持原动作
+        # In other cases, keep the original action
         return (action_name, action_target, None)
 
     def _is_agent_close_to_object(
@@ -220,15 +220,15 @@ class ActionValidator:
         world_graph: Dict[int, Any]
     ) -> bool:
         """
-        判断agent是否足够接近目标物体
+        Determine whether the agent is close enough to the target object
         
         Args:
             agent_id: agent ID
-            object_name: 目标物体名称
-            world_graph: 世界图信息
+            object_name: target object name
+            world_graph: world map information
             
         Returns:
-            是否足够接近
+            is it close enough
         """
         try:
             if agent_id not in world_graph:
@@ -236,17 +236,17 @@ class ActionValidator:
                 
             agent_graph = world_graph[agent_id]
             
-            # 获取agent位置
+            # Get agent location
             agent_pos = self._get_agent_position_from_graph(agent_graph, agent_id)
             if agent_pos is None:
                 return False
                 
-            # 获取物体位置
+            # Get object position
             object_pos = self._get_object_position_from_graph(agent_graph, object_name)
             if object_pos is None:
                 return False
                 
-            # 计算距离
+            # Calculate distance
             distance = self._calculate_distance(agent_pos, object_pos)
             
             return distance <= self.position_threshold
@@ -262,19 +262,19 @@ class ActionValidator:
         world_graph: Dict[int, Any]
     ) -> bool:
         """
-        判断agent是否足够接近目标位置
+        Determine whether the agent is close enough to the target location
         """
         try:
             if agent_id not in world_graph:
                 return False
             agent_graph = world_graph[agent_id]
             
-            # agent位置
+            # agentlocation
             agent_pos = self._get_agent_position_from_graph(agent_graph, agent_id)
             if agent_pos is None:
                 return False
                 
-            # 位置坐标
+            # location coordinates
             location_pos = self._get_location_position_from_graph(agent_graph, location_name)
             if location_pos is None:
                 return False
@@ -288,14 +288,14 @@ class ActionValidator:
             return False
 
     def _get_agent_position_from_graph(self, graph, agent_id: int) -> Optional[List[float]]:
-        """从world graph获取agent位置"""
+        """Get agent location from world graph"""
         try:
-            # 尝试从graph中获取agent位置信息
-            # 这里需要根据实际的world graph结构来实现
+            # Try to get the agent location information from the graph
+            # This needs to be implemented based on the actual world graph structure
             if hasattr(graph, 'get_agent_position'):
                 return graph.get_agent_position(agent_id)
             
-            # 替代方案：从节点中查找agent
+            # Alternative: Find agent from node
             for node in graph.nodes:
                 if hasattr(node, 'agent_id') and node.agent_id == agent_id:
                     return [node.position.x, node.position.y, node.position.z]
@@ -305,9 +305,9 @@ class ActionValidator:
             return None
 
     def _get_object_position_from_graph(self, graph, object_name: str) -> Optional[List[float]]:
-        """从world graph获取物体位置"""
+        """Get object position from world graph"""
         try:
-            # 查找指定名称的物体节点
+            # Find the object node with the specified name
             for node in graph.nodes:
                 if hasattr(node, 'name') and node.name == object_name:
                     return [node.position.x, node.position.y, node.position.z]
@@ -317,7 +317,7 @@ class ActionValidator:
             return None
 
     def _get_location_position_from_graph(self, graph, location_name: str) -> Optional[List[float]]:
-        """从world graph获取位置坐标"""
+        """Get location coordinates from world graph"""
         try:
             for node in graph.nodes:
                 if hasattr(node, 'name') and node.name == location_name:
@@ -328,9 +328,9 @@ class ActionValidator:
             return None
 
     def _calculate_distance(self, pos1: List[float], pos2: List[float]) -> float:
-        """计算两点间的欧几里得距离"""
+        """Calculate the Euclidean distance between two points"""
         try:
-            # 使用坐标计算2D距离（忽略高度）
+            # Calculate 2D distance using coordinates (ignoring height)
             dx = pos1[0] - pos2[0]
             dz = pos1[2] - pos2[2] if len(pos1) > 2 and len(pos2) > 2 else 0
             

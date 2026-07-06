@@ -12,18 +12,18 @@ if TYPE_CHECKING:
 @dataclass
 class AgentResume:
     """
-    存储Agent详细信息的“简历”，用于智能任务分配。
-    包含静态能力、性能特质和动态状态。
+    Stores Agent details“CV”，for intelligent task allocation.
+    Contains static capabilities, performance traits and dynamic states.
     """
     agent_id: int
     name: str
-    # 核心能力: Agent能执行哪些任务类型 (硬约束)
+    # core competencies: AgentWhat types of tasks can be performed (hard constraints)
     capabilities: List[str] = field(default_factory=list)
-    # 性能特质: Agent执行任务的效率和偏好 (软约束 / 评分依据)
+    # Performance characteristics: AgentEfficiency and preference for performing tasks (soft constraints / Rating basis)
     performance_traits: Dict[str, float] = field(default_factory=dict)
-    # 动态状态: 用于实时决策的上下文信息
-    current_task_load: int = 0  # 当前分配的任务数量
-    position: Optional[np.ndarray] = None # 从world_state更新
+    # Dynamic state: Contextual information for real-time decision-making
+    current_task_load: int = 0  # Number of tasks currently assigned
+    position: Optional[np.ndarray] = None # Update from world_state
     history: List[Dict[str, Any]] = field(default_factory=list) # To store action history
     
     def get_core_description(self, format_style="compact") -> str:
@@ -166,11 +166,11 @@ class AgentResume:
             'name': self.name,
             'core_description': self.get_core_description(),
             'capabilities_count': len(self.capabilities),
-            'top_capabilities': self.capabilities[:5],  # 前5个能力
+            'top_capabilities': self.capabilities[:5],  # Top 5 abilities
             'performance_summary': {
                 trait: f"{value:.2f}" for trait, value in 
                 sorted(self.performance_traits.items(), 
-                       key=lambda x: x[1], reverse=True)[:3]  # 前3个性能特质
+                       key=lambda x: x[1], reverse=True)[:3]  # Top 3 performance traits
             },
             'current_load': self.current_task_load,
             'position': self.position.tolist() if self.position is not None else None,
@@ -210,7 +210,7 @@ class TaskHelper:
             return header + "\n" + "\n".join(summaries)
     
     def _generate_prompt_summary(self) -> str:
-        """生成适合LLM规划的详细团队摘要"""
+        """Generate detailed team summaries suitable for LLM planning"""
         team_size = len(self.agent_resumes)
         header = f"Available Agents for Task Planning ({team_size} robots):"
         agent_descriptions = []
@@ -222,11 +222,11 @@ class TaskHelper:
         planning_hints = self._generate_planning_hints()
         sections = [
             header,
-            "",  # 空行
+            "",  # blank line
             "\n".join(agent_descriptions),
-            "",  # 空行
+            "",  # blank line
             team_overview,
-            "",  # 空行  
+            "",  # blank line
             planning_hints
         ]
         
@@ -273,16 +273,16 @@ class TaskHelper:
         last_actions: Dict[int, Tuple[str, str, str]]
     ):
         """
-        根据最新的世界状态、反馈以及上一步执行的动作，来更新所有Agent的简历。
-        此方法应在每个replan周期的开始调用，以实现基于反馈的学习。
+        Update the resumes of all Agents based on the latest world state, feedback, and actions performed in the previous step.
+        This method should be called at the beginning of each replan cycle to enable feedback-based learning.
         """
         for agent_id, resume in self.agent_resumes.items():
-            # 从world_state更新位置信息
+            # Update location information from world_state
             agent_name_for_pose = f"agent_{agent_id}"
             if agent_name_for_pose in world_state.get('agent_poses', {}):
                  resume.position = np.array(world_state['agent_poses'][agent_name_for_pose].get('position'))
 
-            # 根据反馈和具体动作更新性能特质
+            # Update performance traits based on feedback and specific actions
             feedback = agent_feedback.get(agent_id, "")
             last_action_tuple = last_actions.get(agent_id)
             
@@ -290,7 +290,7 @@ class TaskHelper:
                 action_name = last_action_tuple[0]
                 self._update_traits_from_feedback(resume, feedback, action_name)
                 
-                # 记录历史，用于更复杂的分析
+                # Record history for more complex analysis
                 history_entry = {
                     'action': action_name,
                     'params': last_action_tuple[1],
@@ -303,12 +303,12 @@ class TaskHelper:
 
     def _update_traits_from_feedback(self, resume: AgentResume, feedback: str, action_name: str):
         """
-        根据具体动作的执行反馈，精细化地更新性能特质，实现一个简单的学习机制。
+        Based on the execution feedback of specific actions, performance characteristics are updated in a refined manner to implement a simple learning mechanism.
         """
         feedback_lower = feedback.lower()
         action_lower = action_name.lower()
 
-        # 成功的反馈 -> 略微提升相关技能评分
+        # Successful Feedback -> Slightly improve related skill scores
         if "successful execution" in feedback_lower:
             if action_lower in ['pick', 'place', 'rearrange']:
                 current_precision = resume.performance_traits.get('precision', 0.5)
@@ -319,7 +319,7 @@ class TaskHelper:
                 resume.performance_traits['speed'] = min(1.0, current_speed + 0.02)
                 print(f"[Feedback] Agent {resume.agent_id} succeeded at '{action_name}'. Speed increased to {resume.performance_traits['speed']:.3f}")
 
-        # 失败的反馈 -> 显著降低相关技能评分
+        # Failed feedback -> Significantly lowers relevant skill scores
         elif "fail" in feedback_lower or "unreachable" in feedback_lower:
             if action_lower in ['pick', 'place', 'rearrange']:
                 current_precision = resume.performance_traits.get('precision', 0.5)
@@ -330,20 +330,20 @@ class TaskHelper:
                 resume.performance_traits['speed'] = max(0.1, current_speed - 0.1)
                 print(f"[Feedback] Agent {resume.agent_id} failed at '{action_name}'. Speed decreased to {resume.performance_traits['speed']:.3f}")
         
-        # "in progress" 不做调整，等待最终结果
+        # "in progress" Make no adjustments and wait for the final result
         elif "in progress" in feedback_lower:
             pass
         
         else:
-            # 对于其他未知类型的反馈，可以考虑做一个微小的负面调整
+            # For other unknown types of feedback, consider making a small negative adjustment
             pass
 
     def _initialize_agent_resumes(self) -> Dict[int, AgentResume]:
         """
-        初始化所有Agent的“简历”。在实际应用中，这些信息可以从配置文件加载。
+        Initialize all Agents“CV”。In practical applications, this information can be loaded from configuration files.
         """
         resumes = {}
-        # Agent 0: "Workhorse" - 基础能力强，速度快
+        # Agent 0: "Workhorse" - Strong basic ability and fast speed
         resumes[0] = AgentResume(
             agent_id=0,
             name="Robot_0_Workhorse",
@@ -356,7 +356,7 @@ class TaskHelper:
             }
         )
         
-        # Agent 1: "Specialist" - 更精密，具备特殊技能
+        # Agent 1: "Specialist" - More sophisticated, with special skills
         resumes[1] = AgentResume(
             agent_id=1,
             name="Robot_1_Specialist",
@@ -366,26 +366,26 @@ class TaskHelper:
                 'precision': 0.9,
                 'energy_efficiency': 0.9,
                 'exploration_bias': 0.8,
-                'liquid_handling_skill': 0.95, # 特殊技能评分
-                'power_control_skill': 0.9,   # 特殊技能评分
+                'liquid_handling_skill': 0.95, # Special skill rating
+                'power_control_skill': 0.9,   # Special skill rating
             }
         )
         return resumes
 
     def _calculate_assignment_score(self, task: Dict[str, Any], resume: AgentResume) -> float:
         """
-        核心评分函数：计算一个Agent对于一个特定任务的“适应性分数”。
-        分数越高，越适合。返回0代表无法执行。
+        Core scoring function: Calculates the performance of an Agent for a specific task“adaptability score”。
+        The higher the score, the better the fit. Returning 0 means it cannot be executed.
         """
         task_type = task.get('task_type', 'Wait')
 
-        # 1. 能力匹配 (硬约束)
+        # 1. ability matching (hard constraints)
         if task_type not in resume.capabilities:
             return 0.0
 
-        score = 1.0  # 基础分：只要能做就有1分
+        score = 1.0  # Basic points: 1 point if you can do it
 
-        # 2. 性能特质匹配 (软约束/加分项)
+        # 2. Performance trait matching (soft constraints/Bonus points)
         if task_type in ['Navigate', 'Explore']:
             score += resume.performance_traits.get('speed', 0.5) * 0.5
             score += resume.performance_traits.get('exploration_bias', 0.5) * 0.3
@@ -399,17 +399,17 @@ class TaskHelper:
         if task_type in ['PowerOn', 'PowerOff']:
             score += resume.performance_traits.get('power_control_skill', 0.0) * 1.0
         
-        # 3. 动态状态影响 (惩罚项)，实现负载均衡
+        # 3. Dynamic state effects (penalty item)，Implement load balancing
         score -= resume.current_task_load * 0.25
 
-        # 基于空间距离的惩罚
-        # 客观事实作为规划因素，尝试作为Agent偏好
+        # Punishment based on spatial distance
+        # Objective facts as planning factors and attempts as Agent preferences
         target_pos = task.get('target_position')
         if target_pos is not None and resume.position is not None:
             distance = np.linalg.norm(target_pos - resume.position)
-            score -= distance * 0.1 # 距离越远，分数越低
+            score -= distance * 0.1 # The further the distance, the lower the score
 
-        return max(0.1, score) # 确保能做的Agent至少有0.1分
+        return max(0.1, score) # Make sure the agent that can do it has at least 0.1 points
 
     def _distribute_tasks_with_scoring(
         self, 
@@ -417,42 +417,42 @@ class TaskHelper:
         agent_ids: List[int]
     ) -> Dict[int, List[Dict[str, Any]]]:
         """
-        使用基于评分的系统，将一组任务实例智能地分配给一组Agent。
+        Use a scoring-based system to intelligently assign a set of task instances to a set of Agents.
         """
         assignments: Dict[int, List[Dict[str, Any]]] = {i: [] for i in agent_ids}
         
-        # 实时更新Agent的动态信息 (任务负载)
+        # Update Agent’s dynamic information in real time (task load)
         for agent_id in agent_ids:
             self.agent_resumes[agent_id].current_task_load = 0
-            # 这里也可以从 world_state 更新 agent_resumes[agent_id].position
+            # Agent_resumes can also be updated from world_state here[agent_id].position
 
-        # 遍历每一个任务，为其寻找最合适的Agent
+        # Traverse each task and find the most suitable Agent for it
         for task in tasks:
             scores = {
                 agent_id: self._calculate_assignment_score(task, self.agent_resumes[agent_id])
                 for agent_id in agent_ids
             }
             
-            # 找到得分最高的Agent
+            # Find the agent with the highest score
             if any(s > 0 for s in scores.values()):
                 best_agent_id = max(scores, key=scores.get)
             else:
-                # Fallback: 如果所有Agent都不能执行，则分配给第一个
+                # Fallback: If all agents cannot execute, the first one is assigned
                 best_agent_id = agent_ids[0]
                 print(f"[WARNING] No capable agent found for task {task.get('task_type')}, assigning to Agent {best_agent_id} as fallback.")
 
-            # 分配任务
+            # Assign tasks
             assignments[best_agent_id].append(task)
-            # 更新该Agent的任务负载，以便为下一个任务的分配提供正确状态
+            # Update the agent's task load to provide the correct status for the next task assignment
             self.agent_resumes[best_agent_id].current_task_load += 1
             
         return assignments
 
     def get_aptitude_matrix(self, tasks: List[Dict[str, Any]], agents: List["Agent"]) -> np.ndarray:
         """
-        生成一个适应性矩阵 (Aptitude Matrix)，表示每个Agent对每个任务的适应性分数。
-        矩阵维度为 (n_agents, n_tasks)。
-        分数越高，表示Agent越适合执行该任务。
+        Generate an adaptability matrix (Aptitude Matrix)，Indicates the adaptability score of each agent for each task.
+        The matrix dimensions are (n_agents, n_tasks)。
+        The higher the score, the more suitable the agent is for performing the task.
         """
         n_agents = len(agents)
         n_tasks = len(tasks)
@@ -466,15 +466,15 @@ class TaskHelper:
                 continue
             
             for j, task in enumerate(tasks):
-                # 利用现有的评分函数计算分数
+                # Calculate scores using existing scoring functions
                 score = self._calculate_assignment_score(task, resume)
                 aptitude_matrix[i, j] = score
         
-        # 归一化处理：确保分数在合理范围内，避免影响优化求解
-        # 例如，可以按列（任务）进行归一化，使得每个任务的总分数倾向于一个固定值
-        # 这里我们先做一个简单的缩放，避免0分
+        # Normalization processing: ensure that the scores are within a reasonable range to avoid affecting the optimization solution
+        # For example, you can normalize by column (task) so that the total score for each task tends to a fixed value
+        # Here we first do a simple scaling to avoid 0 points
         if np.any(aptitude_matrix):
-             aptitude_matrix = np.clip(aptitude_matrix, 0.1, 10.0) # 避免0和过大值
+             aptitude_matrix = np.clip(aptitude_matrix, 0.1, 10.0) # Avoid 0 and overly large values
         
         print("[DEBUG] Generated Aptitude Matrix (Agents x Tasks):")
         print(aptitude_matrix)
@@ -491,16 +491,16 @@ class TaskHelper:
         miqp_solver_wrapper: "MIQPSolverWrapper"
     ) -> Dict[int, List[Dict[str, Any]]]:
         """
-        根据MIQP的宏观分配结果，结合基于“简历”的评分系统，进行最终的任务实例分配。
+        According to the macro allocation results of MIQP, combined with“CV”The scoring system is used for final assignment of task instances.
         """
-        # MIQP给出了任务类型级别的分配建议 (alpha矩阵)
+        # MIQPSuggestions for assignments at the task type level are given (alphamatrix)
         if alpha is None or not np.any(alpha > 0.5):
             print("[DEBUG] MIQP solution not available or empty. Using resume-based heuristic assignment for all phase tasks.")
-            # 当MIQP无解时，所有当前阶段的任务都将通过评分系统进行分配
+            # When there is no solution to the MIQP, all tasks in the current stage will be assigned through the scoring system
             agent_ids = [agent.uid for agent in agents]
             return self._distribute_tasks_with_scoring(current_phase_tasks, agent_ids)
 
-        # 正常流程：MIQP有解
+        # Normal process: MIQP has solution
         print("[DEBUG] Using resume-based scoring system for instance-level assignment.")
         agent_ids = [agent.uid for agent in agents]
         agent_task_assignments = self._distribute_tasks_with_scoring(current_phase_tasks, agent_ids)
@@ -513,7 +513,7 @@ class TaskHelper:
         return agent_task_assignments
 
     def create_fallback_tasks(self, instruction: str, agents) -> List[Dict[str, Any]]:
-        """创建更稳健的、分阶段的备用任务计划。"""
+        """Create a more robust, phased backup mission plan."""
         
         # Phase 1: Explore
         explore_phase = {

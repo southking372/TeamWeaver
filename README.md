@@ -27,7 +27,8 @@ TeamWeaver is a multi-robot collaborative task planning framework that integrate
    - `dynamic_world_graph.py`: Dynamic world graph (based on partial observations)
 
 3. **LLM Interface**
-   - Support for Llama 2.X/3.X (base and instruction-tuned versions)
+   - Support for Llama 2.X/3.X (base and instruction-tuned models)
+   - Support for VLLM reference mode
    - Support for OpenAI Chat models (via Azure OpenAI)
    - Support for multimodal LLMs
 
@@ -105,7 +106,6 @@ python -m habitat_llm.examples.planner_demo \
     evaluation.planner.plan_config.llm.generation_params.engine="your-model-name" \
     num_proc=4
 ```
-
 
 #### Using Llama Models (HF-Mode, default)
 

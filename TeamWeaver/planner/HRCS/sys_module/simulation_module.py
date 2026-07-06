@@ -10,8 +10,8 @@ class SimulationConfig:
     
     def _initialize_sim_params(self):
         sim_params = {
-            'DT': 0.1,  # 时间步长
-            'max_iter': 800,  # 最大迭代次数
+            'DT': 0.1,  # time step
+            'max_iter': 800,  # Maximum number of iterations
             'initial_states': self._create_initial_states(),
             'trajectory': self._create_trajectory_storage()
         }
@@ -20,9 +20,9 @@ class SimulationConfig:
     
     def _create_initial_states(self):
         x = np.zeros((self.n_x, self.n_r))
-        x[0, :] = 1.65 * np.ones(self.n_r)  # 初始x位置
-        x[1, :] = np.linspace(-1, 1, self.n_r)  # 初始y位置
-        x[2, :] = np.zeros(self.n_r)  # 初始角度
+        x[0, :] = 1.65 * np.ones(self.n_r)  # initial x position
+        x[1, :] = np.linspace(-1, 1, self.n_r)  # initial y position
+        x[2, :] = np.zeros(self.n_r)  # initial angle
         
         return x
     
@@ -40,7 +40,7 @@ class SimulationConfig:
         if param_name in self.sim_params:
             self.sim_params[param_name] = value
         else:
-            print(f"警告：参数 '{param_name}' 不存在于模拟参数中")
+            print(f"Warning: parameter '{param_name}' does not exist in simulation parameters")
     
     def get_initial_states(self):
         return self.sim_params['initial_states']

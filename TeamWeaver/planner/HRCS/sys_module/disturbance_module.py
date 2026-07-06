@@ -2,7 +2,7 @@
 import numpy as np
 from matplotlib.path import Path
 
-# 干扰项类
+#Disturbance category
 class DisturbanceConfig:
     def __init__(self, global_vars):
         self.global_vars = global_vars
@@ -46,11 +46,11 @@ class DisturbanceConfig:
             x_mud_val = getattr(self.global_vars, 'x_mud', None)
             y_mud_val = getattr(self.global_vars, 'y_mud', None)
         
-        # 检查点是否在泥地区域内
+        #Check if the point is within the mud area
         in_mud = False
         if x_mud_val is not None and y_mud_val is not None:
             path = Path(np.column_stack((x_mud_val, y_mud_val)))
             in_mud = path.contains_point((x[0, i], x[1, i]))
         
         return (i == robot_exo_dist_val - 1) or (alpha[task_exo_dist_val - 1, i] > 0) or in_mud 
-        #我觉得这里的三个条件应该是互为独立的，无论是该机器人受到干扰，还是其正在执行的任务受到干扰，抑或是该机器人陷入泥地，都会对该机器人造成影响。
+        #I think the three conditions here should be independent of each other. Whether the robot is disturbed, the task it is performing is disturbed, or the robot gets stuck in the mud, it will all have an impact on the robot.

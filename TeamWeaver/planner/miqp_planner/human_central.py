@@ -24,7 +24,7 @@ def initialize_human_modeling():
     tagger = LLMProfessionTagger()
     human_system = HumanModelingSystem(tagger, num_humans=1)
     human_descriptions = [
-        "经验丰富的操作员，擅长精确控制和快速响应，有多年操作经验"
+        "Experienced operator skilled in precision control and fast response, with many years of operation experience"
     ]
     human_system.initialize_humans(human_descriptions)
     # Generate scenario matrices
@@ -100,13 +100,13 @@ p_transport_t = None
 # Initialize robots
 robots = [None] * n_r
 for i in range(n_r):
-    if i == 0:  # 第一个是Human
+    if i == 0:  # first is Human
         human_robot = SingleIntegrator()
         human_capabilities = human_system.human_models[0].capabilities
         robots[i] = human_robot
-        print(f"初始化人类操作员，职业类型: {human_system.human_models[0].profession_type}")
-        print(f"人类操作员能力值: {human_capabilities}")
-    else:  # 第2-5个是机器人
+        print(f"initialize humanmanipulationemployee, occupation type: {human_system.human_models[0].profession_type}")
+        print(f"humanmanipulationStaff ability value: {human_capabilities}")
+    else:  # 2nd-5th are robots
         robots[i] = SingleIntegrator()
 
 environment = np.array([[1.8, 1.2], [-1.8, 1.2], [-1.8, -1.2], [1.8, -1.2]]).T
@@ -175,15 +175,15 @@ for iter in range(max_iter+1):
     delta = delta.reshape(n_t, n_r, order="F")
     task_assignment = get_task_assignment(alpha)
     
-    # ===== 自适应优化器集成 =====
-    # 根据当前状态和任务分配优化任务函数
+    # ===== Adaptive optimizer integration =====
+    # Optimize task functions from state and assignment
     optimization_updated = task_optimizer.optimize_tasks(x, t, task_assignment)
     if optimization_updated:
-        print(f"任务函数已在 t={t:.1f}s 自适应优化")
+        print(f"Task functions adapted at t={t:.1f}s adaptive optimization")
     # ===========================
 
     for i in range(n_r):
-        if i == 0:  # 第1个是人类操作员
+        if i == 0:  #The first one is humanmanipulationmember
             human_capabilities = human_system.human_models[0].capabilities
             precision_factor = human_capabilities.get('precision', 0.5)
             transport_factor = human_capabilities.get('transport', 0.5)
@@ -225,7 +225,7 @@ for iter in range(max_iter+1):
             before_val = scenario_params['tasks'][j]['function'](x_sim_i, t, i, vars_dict=vars_dict)
             after_val = scenario_params['tasks'][j]['function'](x[:, i], t, i, vars_dict=vars_dict)
             Dh_ij = after_val - before_val
-            # print(f"Robot{i} 任务{j} 变化: {Dh_ij}, max比较量: {S[j, i] + 10 * alpha[j, i] * Dh_ij}")
+            # print(f"Robot{i}Task{j}change: {Dh_ij}, maxComparative quantity: {S[j, i] + 10 * alpha[j, i] * Dh_ij}")
             # print(f"type of Dh_ij: {type(Dh_ij)}, type of alpha[j, i]: {type(alpha[j, i])}, type of S[j, i]: {type(S[j, i])}")
             # S[j, i] = max(0, S[j, i] + 10 * alpha[j, i] * Dh_ij)
             S[j, i] = np.maximum(0, S[j, i] + 10 * alpha[j, i] * Dh_ij)

@@ -2,7 +2,7 @@ import numpy as np
 
 class GlobalVarsManager:
     def __init__(self):
-        # 初始化所有全局变量
+        #Initialize all global variables
         self.p_start = np.array([1, -0.6])
         self.p_goal = np.array([-1, 0.6])
         self.t_start = 2
@@ -18,17 +18,17 @@ class GlobalVarsManager:
         self.t_endogenous = 15
     
     def get_var(self, var_name):
-        """获取指定名称的全局变量"""
+        """Get the global variable with the specified name"""
         if hasattr(self, var_name):
             return getattr(self, var_name)
         return None
     
     def set_var(self, var_name, value):
-        """设置指定名称的全局变量"""
+        """Sets a global variable with the specified name"""
         setattr(self, var_name, value)
     
     def get_all_vars(self):
-        """获取所有全局变量的字典"""
+        """Get a dictionary of all global variables"""
         return {
             name: value for name, value in self.__dict__.items() 
             if not name.startswith('_') and not callable(value)

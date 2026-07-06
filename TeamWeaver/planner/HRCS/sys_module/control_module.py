@@ -10,26 +10,26 @@ class ControlConfig:
         self.control_params = self._initialize_control_params()
     
     def _initialize_control_params(self):
-        # 创建控制参数字典
+        #createcontrol parametersdictionary
         control_params = {
-            'K': self._create_gain_matrix(),  # 增益矩阵
-            'u_max': np.array([1.0, 1.0]),  # 最大控制输入
-            'u_min': np.array([-1.0, -1.0]),  # 最小控制输入
-            'alpha': 0.1,  # 控制权重
-            'beta': 0.9,  # 任务权重
-            'gamma': 0.5,  # 障碍物权重
-            'delta': 0.1,  # 收敛阈值
-            'max_iter': 100,  # 最大迭代次数
-            'control_inputs': np.zeros((self.n_u, self.n_r))  # 控制输入存储
+            'K': self._create_gain_matrix(),  #gain matrix
+            'u_max': np.array([1.0, 1.0]),  #maximumcontrolenter
+            'u_min': np.array([-1.0, -1.0]),  #smallestcontrolenter
+            'alpha': 0.1,  # controlweight
+            'beta': 0.9,  # task weights
+            'gamma': 0.5,  #Obstacle weight
+            'delta': 0.1,  #convergence threshold
+            'max_iter': 100,  #Maximum number of iterations
+            'control_inputs': np.zeros((self.n_u, self.n_r))  # controlinput storage
         }
         
         return control_params
     
     def _create_gain_matrix(self):
         K = np.zeros((self.n_u, self.n_x))
-        K[0, 0] = 1.0  # 位置增益
-        K[0, 1] = 1.0  # 位置增益
-        K[1, 2] = 1.0  # 角度增益
+        K[0, 0] = 1.0  #position gain
+        K[0, 1] = 1.0  #position gain
+        K[1, 2] = 1.0  #Angle gain
         return K
     
     def get_control_params(self):
@@ -39,7 +39,7 @@ class ControlConfig:
         if param_name in self.control_params:
             self.control_params[param_name] = value
         else:
-            print(f"警告：参数 '{param_name}' 不存在于控制参数中")
+            print(f"Warning: parameter '{param_name}' does not exist incontrol parametersmiddle")
     
     def get_gain_matrix(self):
         return self.control_params['K']

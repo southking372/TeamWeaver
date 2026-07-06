@@ -23,7 +23,7 @@ class MIQPSolverWrapper:
         print("[DEBUG] MIQPSolverWrapper reset completed")
 
     def task_plan_MIQP_set(self, agents: List["Agent"]):
-        """设置MIQP参数"""
+        """Set MIQP parameters"""
         try:
             n_agents = len(agents)
             self.scenario_params = ScenarioConfigTask(n_r=n_agents)
@@ -50,7 +50,7 @@ class MIQPSolverWrapper:
             print("[ERROR] Scenario or Optimization parameters not set.")
             return None, None, None, 0, "Params Unset"
         
-        # 从 scenario_params 获取最新的全局变量
+        #fromscenario_paramsGet the latest global variables
         global_vars = self.scenario_params.get_global_task_vars()
 
         n_instances = phase_task_info.get('n_phase_tasks', 0)
@@ -58,7 +58,7 @@ class MIQPSolverWrapper:
             print("[WARNING] No task instances in the current phase to solve.")
             return np.array([]), np.zeros(len(agents) * 2), np.array([]), 0, "No Tasks"
 
-        # 动态构建用于RTA的场景参数
+        #Dynamic build forRTAscene parameters
         phase_scenario = {
             'T': phase_task_info.get('matrix'),
             'n_r_bounds': phase_task_info.get('n_r_bounds'),
@@ -66,12 +66,12 @@ class MIQPSolverWrapper:
             'aptitude_matrix': phase_task_info.get('aptitude_matrix')
         }
 
-        # 调用RTA求解器，并传入最新的全局变量
+        #callRTAsolver and pass in the latest global variables
         alpha, u, delta, time_to_solve, opt_sol_info = self.rta.solve_miqp_phase_aware(
             x, t, phase_scenario, n_instances, global_vars
         )
 
-        # 调整alpha矩阵的形状以便于后续处理
+        #AdjustmentalphaThe shape of the matrix to facilitate subsequent processing
         if alpha is not None:
             num_agents = len(agents)
             # The shape should be (num_agents, num_instances)
@@ -99,21 +99,21 @@ class MIQPSolverWrapper:
 
     def solve_lp_phase_aware(self, x, t, phase_task_info, agents):
         """
-        基于线性规划松弛+匈牙利算法的实例感知求解（Phase-aware LP）。
-        - 动态按当前phase的任务实例数构建效用/成本矩阵
-        - 使用匈牙利算法得到离散分配解
-        - 支持可选的aptitude偏好代价（与RTA实例感知版本类似）
-        返回: (alpha, u, delta, time_to_solve, opt_sol_info)
-        其中alpha为形状 [n_agents, n_instances]
+Instance-aware solution based on linear programming relaxation + Hungarian algorithm (Phase-aware LP）。
+- Dynamic press currentphaseThe number of task instances to build the utility/cost matrix
+- Obtain discrete distribution solutions using the Hungarian algorithm
+- supports optionalaptitudePreference cost (withRTAInstance-aware versions are similar)
+        Returns: (alpha, u, delta, time_to_solve, opt_sol_info)
+inalphafor shape[n_agents, n_instances]
         """
         start_time = time.time()
 
-        # 1) 校验可用性
+        # 1)Check availability
         if not self.scenario_params or not self.opt_params:
             print("[ERROR] Scenario or Optimization parameters not set.")
             return None, None, None, 0, "Params Unset"
 
-        # 2) 读取全局变量与phase实例信息
+        # 2)Read global variables withphaseInstance information
         try:
             global_vars = self.scenario_params.get_global_task_vars()
         except Exception:
@@ -125,7 +125,7 @@ class MIQPSolverWrapper:
             print("[WARNING] No task instances in the current phase to solve (LP).")
             return np.array([]), np.zeros(len(agents) * 2), np.array([]), 0, "No Tasks"
 
-        # 3) 获取基础场景与任务定义；构造实例->任务类型映射
+        # 3)Obtain basic scenario and task definition; construct an instance->Task type mapping
         base_scenario = self.scenario_params.get_scenario_params()
         base_tasks = base_scenario.get('tasks', [])
         robot_dyn = base_scenario.get('robot_dyn', {})
@@ -137,25 +137,25 @@ class MIQPSolverWrapper:
                 task_name_to_index[task['name']] = idx
 
         def resolve_task_type_index(task_entry, fallback_j):
-            # 支持{'task_type': name} 或 {'name': name} 或 直接使用索引回退
+            #support{'task_type': name}or{'name': name}Or use index fallback directly
             if isinstance(task_entry, dict):
                 name = task_entry.get('task_type') or task_entry.get('name')
                 if name in task_name_to_index:
                     return task_name_to_index[name]
-                # 允许直接给出索引
+                #Allows indexes to be given directly
                 if 'type_idx' in task_entry and isinstance(task_entry['type_idx'], int):
                     return task_entry['type_idx']
-            # 回退：按位置索引
+            #Fallback: index by position
             return fallback_j
 
         tasks_phase = phase_task_info.get('tasks', [])
 
-        # 4) 构建成本矩阵（负效用 + aptitude惩罚）
-        #    匈牙利算法求解最小成本，故将效用取负作为成本
+        # 4)Build cost matrix (disutility +aptitudepunish)
+        #The Hungarian algorithm solves for the minimum cost, so the utility is negative as the cost.
         import numpy as _np
         cost_matrix = _np.zeros((n_agents, n_instances), dtype=float)
 
-        # aptitude可选项（形状应为 n_agents x n_instances）
+        # aptitudeOptional (shape should ben_agents x n_instances）
         aptitude_matrix = phase_task_info.get('aptitude_matrix', None)
         use_aptitude = (
             aptitude_matrix is not None and
@@ -170,40 +170,40 @@ class MIQPSolverWrapper:
                     type_idx = resolve_task_type_index(
                         tasks_phase[j] if j < len(tasks_phase) else {}, j
                     )
-                    # 边界检查
+                    #Boundary checking
                     if type_idx < 0 or type_idx >= len(base_tasks):
                         raise IndexError(f"task type index {type_idx} out of range")
                     task_def = base_tasks[type_idx]
-                    # 统一传参：vars_dict允许为None
+                    #Unified parameter passing:vars_dictallowed asNone
                     if global_vars is not None:
                         util = task_def['function'](x[:, i], t, i, vars_dict=global_vars)
                     else:
                         util = task_def['function'](x[:, i], t, i, vars_dict=None)
 
-                    # 成本为负效用
+                    #Cost is disutility
                     cost = -float(util) if util is not None else 0.0
 
-                    # 叠加aptitude偏好（越不擅长成本越高）
+                    #OverlayaptitudePreference (the less good at it, the higher the cost)
                     if use_aptitude:
                         inv_ap = 1.0 / (float(aptitude_matrix[i, j]) + 1e-6)
                         cost += aptitude_weight * inv_ap
 
                     cost_matrix[i, j] = cost
                 except Exception as e:
-                    print(f"[LP-PhaseAware] 计算成本出错 Robot {i}, Inst {j}: {e}")
+                    print(f"[LP-PhaseAware]Error in calculating costRobot {i}, Inst {j}: {e}")
                     cost_matrix[i, j] = 0.0
 
-        # 5) 使用匈牙利算法进行分配（必要时进行方阵扩展）
+        # 5)Allocation using Hungarian algorithm (with square matrix expansion if necessary)
         try:
             from scipy.optimize import linear_sum_assignment
             extended = False
             if n_agents > n_instances:
-                # 扩展列（添加虚拟任务）
+                #Extend columns (add virtual tasks)
                 pad = _np.zeros((n_agents, n_agents - n_instances))
                 cost_ext = _np.hstack([cost_matrix, pad])
                 extended = True
             elif n_instances > n_agents:
-                # 扩展行（添加虚拟机器人）
+                #Extension row (add virtual robot)
                 pad = _np.zeros((n_instances - n_agents, n_instances))
                 cost_ext = _np.vstack([cost_matrix, pad])
                 extended = True
@@ -212,7 +212,7 @@ class MIQPSolverWrapper:
 
             rows, cols = linear_sum_assignment(cost_ext)
 
-            # 6) 构建输出alpha（[n_agents, n_instances]），u与delta设为0
+            # 6)Build outputalpha（[n_agents, n_instances]），uanddeltaSet to 0
             alpha_mat = _np.zeros((n_agents, n_instances))
             for r, c in zip(rows, cols):
                 if r < n_agents and c < n_instances:
@@ -222,14 +222,14 @@ class MIQPSolverWrapper:
             delta = _np.zeros(n_agents * n_instances)
 
             solve_time = time.time() - start_time
-            # 返回与MIQP包装器风格一致的二维alpha
+            #Return withMIQPWrapper style consistent 2Dalpha
             return alpha_mat, u, delta, solve_time, "LP + Hungarian (Phase-aware)"
 
         except ImportError:
-            # 回退：简单优先/轮询分配
-            print("[WARNING] scipy 不可用，LP实例感知求解回退到简单分配。")
+            #Fallback: Simple first/Round robin allocation
+            print("[WARNING] scipyNot available,LPInstance-aware solving falls back to simple assignment.")
             alpha_mat = _np.zeros((n_agents, n_instances))
-            # 简单策略：按每个机器人选择当前列成本最低的未占用任务
+            #Simple strategy: for each robot, select the lowest-cost unoccupied task in the current column
             assigned = set()
             for i in range(n_agents):
                 avail = [j for j in range(n_instances) if j not in assigned]
@@ -245,10 +245,10 @@ class MIQPSolverWrapper:
 
     def task_plan_LP_solve_phase_aware(self, x, t, phase_task_info, agents):
         """
-        使用LP+匈牙利算法的实例感知任务分配封装方法。
-        行为与`task_plan_MIQP_solve_phase_aware`一致，但内部调用`solve_lp_phase_aware`。
+useLP+Instance-aware task allocation encapsulation method of Hungarian algorithm.
+behavior and`task_plan_MIQP_solve_phase_aware`Consistent, but internally called`solve_lp_phase_aware`。
         """
-        # 仅需检查参数是否初始化；LP不依赖RTA对象
+        #Just check whether the parameters are initialized;LPnot dependent onRTAobject
         if not self.scenario_params or not self.opt_params:
             print("[ERROR] Scenario or Optimization parameters not set.")
             return None, None, None, 0, "Params Unset"
@@ -258,12 +258,12 @@ class MIQPSolverWrapper:
             print("[WARNING] No task instances in the current phase to solve (LP wrapper).")
             return np.array([]), np.zeros(len(agents) * 2), np.array([]), 0, "No Tasks"
 
-        # 调用LP实例感知求解
+        #callLPInstance-aware solving
         alpha, u, delta, time_to_solve, opt_sol_info = self.solve_lp_phase_aware(
             x, t, phase_task_info, agents
         )
 
-        # 形状统一处理：确保alpha为 [n_agents, n_instances]
+        #Shapes are handled uniformly: ensurealphafor[n_agents, n_instances]
         if alpha is not None:
             num_agents = len(agents)
             try:

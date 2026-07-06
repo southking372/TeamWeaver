@@ -18,15 +18,15 @@ class ScenarioConfigTask:
     
     def __init__(self, n_r=2, n_t=13, n_c=5, n_f=5, n_x=3, n_u=2):
         """
-        初始化场景配置任务 - 简化的PARTNR Agent能力模型
+        Initialization scenario configuration task - simplified PARTNR Agent capability model
         
-        参数:
-            n_r: 机器人数量，默认为2 (Agent 0, Agent 1)
-            n_t: 任务类型数量，默认为13 (Navigate, Explore, Pick, Place, Open, Close, Clean, Fill, Pour, PowerOn, PowerOff, Rearrange, Wait)
-            n_c: 能力类别数量，默认为5 (简化的特征分类：基础移动, 物体操作, 基本控制, 液体处理, 电源控制)
-            n_f: 功能维度，默认为5 (基础移动/物体操作/基本控制/液体处理/电源控制)
-            n_x: 状态维度，默认为3 (x, y, θ)
-            n_u: 控制输入维度，默认为2 (v, ω)
+        Parameters:
+            n_r: number of robots，Default is 2 (Agent 0, Agent 1)
+            n_t: Number of task types, default is 13 (Navigate, Explore, Pick, Place, Open, Close, Clean, Fill, Pour, PowerOn, PowerOff, Rearrange, Wait)
+            n_c: capability categoriesquantity, default is 5 (Simplified feature classification: basic movement, object manipulation, Basic control, liquiddeal with, powercontrol)
+            n_f: Functional dimension, default is 5 (Basic movement/object manipulation/Basic control/liquiddeal with/powercontrol)
+            n_x: Status dimension, default is 3 (x, y, θ)
+            n_u: controlInput dimension, default is 2 (v, ω)
         """
         self.n_r = n_r
         self.n_t = n_t
@@ -35,24 +35,24 @@ class ScenarioConfigTask:
         self.n_x = n_x
         self.n_u = n_u
         
-        # 确保传入的 n_x, n_u 与 RobotDynamicsConfig 期望的一致
+        # Make sure the n_x passed in, n_u Consistent with what RobotDynamicsConfig expects
         if n_x != 3 or n_u != 2:
-             print(f"警告: ScenarioConfigTask 收到 n_x={n_x}, n_u={n_u}, 但通常期望 n_x=3, n_u=2 用于差速驱动模型。")
+             print(f"warn: ScenarioConfigTask received n_x={n_x}, n_u={n_u}, But usually expect n_x=3, n_u=2 For use on differential drive models.")
 
         self.scenario_params = self._initialize_scenario_params()
         
-        # 初始化任务相关的全局变量
+        # Initialize task-related global variables
         self._initialize_global_task_vars()
     
     def _initialize_global_task_vars(self):
         self.global_task_vars = {
-            # NaviTask 相关变量
+            # NaviTask related variables
             'p_goal': np.array([1.5, 1.0]),
             'theta_goal': 0.0,
             'dist_thresh': 0.2,
             'orientation_weight': 0.3,
             
-            # ExploreTask相关变量
+            # ExploreTaskrelated variables
             'exploration_targets': [
                 {'position': np.array([1.0, 0.8]), 'explored': False, 'id': 0},
                 {'position': np.array([-1.0, 0.5]), 'explored': False, 'id': 1},
@@ -64,7 +64,7 @@ class ScenarioConfigTask:
             'exploring_action_info': {},
             'exploration_action_timers': {},
             
-            # Pick/Place/Manipulation相关变量
+            # Pick/Place/Manipulationrelated variables
             'target_object_position': np.array([0.8, -0.5]),
             'target_receptacle_position': np.array([-0.8, 0.7]),
             'pick_dist_thresh': 0.15,
@@ -74,28 +74,28 @@ class ScenarioConfigTask:
             'holding_robot_id': None,
             'manipulation_phase': ManipulationPhase.NAV_OBJ,
             
-            # Open/Close相关变量
+            # Open/Closerelated variables
             'target_furniture_position': np.array([1.0, 0.5]),
             'operation_dist_thresh': 0.2,
             'furniture_open_state': False,
             
-            # Clean相关变量
+            # Cleanrelated variables
             'clean_dist_thresh': 0.15,
             'object_clean_state': False,
             
-            # Fill/Pour相关变量
+            # Fill/Pourrelated variables
             'target_container_position': np.array([0.3, 0.8]),
             'fill_dist_thresh': 0.15,
             'container_filled_state': False,
             'pour_dist_thresh': 0.15,
             'pour_completed_state': False,
             
-            # PowerOn/PowerOff相关变量
+            # PowerOn/PowerOffrelated variables
             'target_device_position': np.array([0.7, 0.4]),
             'power_dist_thresh': 0.15,
             'device_power_state': False,
             
-            # WaitTask相关变量
+            # WaitTaskrelated variables
             'wait_step_threshold': 5.0,
             'sim_freq': 1.0,
             'wait_elapsed_time': 0.0
@@ -108,94 +108,94 @@ class ScenarioConfigTask:
         if var_name in self.global_task_vars:
             self.global_task_vars[var_name] = value
         else:
-            print(f"警告: 尝试更新不存在的全局任务变量 '{var_name}'")
-            # self.global_task_vars[var_name] = value # 可选：动态添加
+            print(f"warn: Attempt to update global task variable that does not exist '{var_name}'")
+            # self.global_task_vars[var_name] = value # Optional: add dynamically
     
     def _initialize_scenario_params(self):
-        # 初始化机器人的特征和能力 - 简化的PARTNR Agent配置
-        # 特征维度：[基础移动, 物体操作, 基本控制, 液体处理, 电源控制]
+        # Initializing Robot Characteristics and Capabilities - Simplified PARTNR Agent Configuration
+        # Feature dimensions:[Basic movement, object manipulation, Basic control, liquiddeal with, powercontrol]
         # Agent 0: Close, Explore, Navigate, Open, Pick, Place, Rearrange, Wait
         # Agent 1: Clean, Close, Explore, Fill, Navigate, Open, Pick, Place, Pour, PowerOff, PowerOn, Rearrange, Wait
         
         partnr_agent_features = [
-            # Agent 0: 基础移动、物体操作和基本控制能力
-            [1, 1, 1, 0, 0],  # 基础移动+物体操作+基本控制，无液体处理/电源控制
-            # Agent 1: 全功能Agent
-            [1, 1, 1, 1, 1]   # 所有功能都具备
+            # Agent 0: Basic movement, object manipulation and basic control capabilities
+            [1, 1, 1, 0, 0],  # Basic movement+object manipulation+basic control, no liquid processing/powercontrol
+            # Agent 1: full capabilityAgent
+            [1, 1, 1, 1, 1]   # All functions are available
         ]
 
-        # 根据实际 n_r 初始化 A 矩阵
+        # Initialize matrix A based on actual n_r
         A = np.zeros((self.n_f, self.n_r))
 
-        # 分配PARTNR特征
+        # Assign PARTNR characteristics
         for i in range(self.n_r):
             if i < len(partnr_agent_features):
                 feature_vector = partnr_agent_features[i]
                 if len(feature_vector) == self.n_f:
                     A[:, i] = feature_vector
                 else:
-                    print(f"警告: Agent {i} 的特征长度 ({len(feature_vector)}) 与 n_f ({self.n_f}) 不匹配")
+                    print(f"warn: Agent {i} The characteristic length of ({len(feature_vector)}) with n_f ({self.n_f}) no match")
                     A[:, i] = np.zeros(self.n_f)
             else:
-                # 额外的机器人使用Agent 1的配置
+                # Additional robots use Agent 1's configuration
                 A[:, i] = partnr_agent_features[1] if len(partnr_agent_features) > 1 else np.ones(self.n_f)
 
-        # 任务能力需求矩阵 - 13种PARTNR工具映射到5种简化能力
-        # 任务顺序: [Navigate, Explore, Pick, Place, Open, Close, Clean, Fill, Pour, PowerOn, PowerOff, Rearrange, Wait]
-        # 能力分类: [基础移动, 物体操作, 基本控制, 液体处理, 电源控制]
+        # Mission Capability Requirements Matrix - 13 PARTNR tools mapped to 5 simplified capabilities
+        # Task sequence: [Navigate, Explore, Pick, Place, Open, Close, Clean, Fill, Pour, PowerOn, PowerOff, Rearrange, Wait]
+        # Ability classification: [Basic movement, object manipulation, Basic control, liquiddeal with, powercontrol]
         T = np.zeros((self.n_t, self.n_c))
         
-        # 任务到能力的映射关系
-        if self.n_t > 0 and self.n_c > 0: T[0, 0] = 1   # Navigate → 基础移动
-        if self.n_t > 1 and self.n_c > 0: T[1, 0] = 1   # Explore → 基础移动
-        if self.n_t > 2 and self.n_c > 1: T[2, 1] = 1   # Pick → 物体操作
-        if self.n_t > 3 and self.n_c > 1: T[3, 1] = 1   # Place → 物体操作
-        if self.n_t > 4 and self.n_c > 2: T[4, 2] = 1   # Open → 基本控制
-        if self.n_t > 5 and self.n_c > 2: T[5, 2] = 1   # Close → 基本控制
-        if self.n_t > 6 and self.n_c > 3: T[6, 3] = 1   # Clean → 液体处理
-        if self.n_t > 7 and self.n_c > 3: T[7, 3] = 1   # Fill → 液体处理
-        if self.n_t > 8 and self.n_c > 3: T[8, 3] = 1   # Pour → 液体处理
-        if self.n_t > 9 and self.n_c > 4: T[9, 4] = 1   # PowerOn → 电源控制
-        if self.n_t > 10 and self.n_c > 4: T[10, 4] = 1 # PowerOff → 电源控制
-        if self.n_t > 11 and self.n_c > 1: T[11, 1] = 1 # Rearrange → 物体操作
-        if self.n_t > 12 and self.n_c > 0: T[12, 0] = 1 # Wait → 基础移动
+        # Mapping relationship from tasks to abilities
+        if self.n_t > 0 and self.n_c > 0: T[0, 0] = 1   # Navigate → Basic movement
+        if self.n_t > 1 and self.n_c > 0: T[1, 0] = 1   # Explore → Basic movement
+        if self.n_t > 2 and self.n_c > 1: T[2, 1] = 1   # Pick → object manipulation
+        if self.n_t > 3 and self.n_c > 1: T[3, 1] = 1   # Place → object manipulation
+        if self.n_t > 4 and self.n_c > 2: T[4, 2] = 1   # Open → Basic control
+        if self.n_t > 5 and self.n_c > 2: T[5, 2] = 1   # Close → Basic control
+        if self.n_t > 6 and self.n_c > 3: T[6, 3] = 1   # Clean → liquidProcess
+        if self.n_t > 7 and self.n_c > 3: T[7, 3] = 1   # Fill → liquidProcess
+        if self.n_t > 8 and self.n_c > 3: T[8, 3] = 1   # Pour → liquidProcess
+        if self.n_t > 9 and self.n_c > 4: T[9, 4] = 1   # PowerOn → powercontrol
+        if self.n_t > 10 and self.n_c > 4: T[10, 4] = 1 # PowerOff → powercontrol
+        if self.n_t > 11 and self.n_c > 1: T[11, 1] = 1 # Rearrange → object manipulation
+        if self.n_t > 12 and self.n_c > 0: T[12, 0] = 1 # Wait → Basic movement
         
-        # 映射关系 Hs (5能力 → 5功能) - 简化的PARTNR工具
-        # 功能维度：[基础移动, 物体操作, 基本控制, 液体处理, 电源控制]
+        # Mapping relationship Hs (5Capabilities → 5 functions) - Simplified PARTNR tool
+        # Functional dimensions:[Basic movement, object manipulation, Basic control, liquiddeal with, powercontrol]
         Hs = [np.zeros((1, self.n_f)) for _ in range(self.n_c)]
         
-        # 能力0：基础移动 → 基础移动功能
+        # Capability 0: Basic movement → Basic movement function
         if self.n_c > 0: Hs[0][0, 0] = 1
-        # 能力1：物体操作 → 基础移动+物体操作功能
+        # Ability 1: Object manipulation → basic movement+object manipulation function
         if self.n_c > 1 and self.n_f >= 2: 
-            Hs[1][0, 0] = 1  # 需要基础移动
-            Hs[1][0, 1] = 1  # 需要物体操作
-        # 能力2：基本控制 → 基础移动+基本控制功能
+            Hs[1][0, 0] = 1  # Requires basic movement
+            Hs[1][0, 1] = 1  # Requires object manipulation
+        # Ability 2: Basic control → basic movement+basic control function
         if self.n_c > 2 and self.n_f >= 3:
-            Hs[2][0, 0] = 1  # 需要基础移动
-            Hs[2][0, 2] = 1  # 需要基本控制
-        # 能力3：液体处理 → 基础移动+液体处理功能
+            Hs[2][0, 0] = 1  # Requires basic movement
+            Hs[2][0, 2] = 1  # Need basic control
+        # Capability 3: Liquid processing → Basic movement+liquid processing function
         if self.n_c > 3 and self.n_f >= 4:
-            Hs[3][0, 0] = 1  # 需要基础移动
-            Hs[3][0, 3] = 1  # 需要液体处理
-        # 能力4：电源控制 → 基础移动+电源控制功能
+            Hs[3][0, 0] = 1  # Requires basic movement
+            Hs[3][0, 3] = 1  # Need liquid processing
+        # Capability 4: powercontrol → basic movement+powercontrol function
         if self.n_c > 4 and self.n_f >= 5:
-            Hs[4][0, 0] = 1  # 需要基础移动
-            Hs[4][0, 4] = 1  # 需要电源控制
+            Hs[4][0, 0] = 1  # Requires basic movement
+            Hs[4][0, 4] = 1  # Requires powercontrol
         
-        # 权重矩阵 ws - 简化的能力重要性权重
-        ws = [np.eye(1) for _ in range(self.n_c)]  # 默认单位权重
-        # 调整关键能力的权重
-        if self.n_c > 0: ws[0] = 2.0 * np.eye(1)    # 基础移动 - 基础且重要
-        if self.n_c > 1: ws[1] = 2.5 * np.eye(1)    # 物体操作 - 核心功能
-        if self.n_c > 2: ws[2] = 2.0 * np.eye(1)    # 基本控制 - 重要控制
-        if self.n_c > 3: ws[3] = 1.8 * np.eye(1)    # 液体处理 - 中等重要
-        if self.n_c > 4: ws[4] = 1.5 * np.eye(1)    # 电源控制 - 相对次要
+        # Weight matrix ws - Simplified capability importance weights
+        ws = [np.eye(1) for _ in range(self.n_c)]  # Default unit weight
+        # Adjust the weight of key capabilities
+        if self.n_c > 0: ws[0] = 2.0 * np.eye(1)    # Basic movement - basic and important
+        if self.n_c > 1: ws[1] = 2.5 * np.eye(1)    # Object manipulation - core functionality
+        if self.n_c > 2: ws[2] = 2.0 * np.eye(1)    # Basic controls - important controls
+        if self.n_c > 3: ws[3] = 1.8 * np.eye(1)    # liquidProcessing - Moderately Important
+        if self.n_c > 4: ws[4] = 1.5 * np.eye(1)    # powercontrol - relatively minor
         
-        # 初始化任务函数 - 对应13种PARTNR工具
+        # Initialization task function - corresponding to 13 PARTNR tools
         tasks = [None] * self.n_t
         
-        # 任务0：Navigate
+        # Mission 0: Navigate
         if self.n_t > 0:
             tasks[0] = {
                 'function': NaviTask.navi_function,
@@ -204,7 +204,7 @@ class ScenarioConfigTask:
                 'name': 'Navigate'
             }
         
-        # 任务1：Explore
+        # Task 1: Explore
         if self.n_t > 1:
             tasks[1] = {
                 'function': ExploreTask.explore_function,
@@ -213,7 +213,7 @@ class ScenarioConfigTask:
                 'name': 'Explore'
             }
         
-        # 任务2：Pick
+        # Task 2: Pick
         if self.n_t > 2:
             tasks[2] = {
                 'function': PickTask.pick_function,
@@ -222,7 +222,7 @@ class ScenarioConfigTask:
                 'name': 'Pick'
             }
         
-        # 任务3：Place
+        # Task 3: Place
         if self.n_t > 3:
             tasks[3] = {
                 'function': PlaceTask.place_function,
@@ -231,7 +231,7 @@ class ScenarioConfigTask:
                 'name': 'Place'
             }
         
-        # 任务4：Open
+        # Task 4: Open
         if self.n_t > 4:
             tasks[4] = {
                 'function': OpenTask.open_function,
@@ -240,7 +240,7 @@ class ScenarioConfigTask:
                 'name': 'Open'
             }
         
-        # 任务5：Close
+        # Task 5: Close
         if self.n_t > 5:
             tasks[5] = {
                 'function': CloseTask.close_function,
@@ -249,7 +249,7 @@ class ScenarioConfigTask:
                 'name': 'Close'
             }
         
-        # 任务6：Clean
+        # Task 6: Clean
         if self.n_t > 6:
             tasks[6] = {
                 'function': CleanTask.clean_function,
@@ -258,7 +258,7 @@ class ScenarioConfigTask:
                 'name': 'Clean'
             }
         
-        # 任务7：Fill
+        # Task 7: Fill
         if self.n_t > 7:
             tasks[7] = {
                 'function': FillTask.fill_function,
@@ -267,7 +267,7 @@ class ScenarioConfigTask:
                 'name': 'Fill'
             }
         
-        # 任务8：Pour
+        # Mission 8: Pour
         if self.n_t > 8:
             tasks[8] = {
                 'function': PourTask.pour_function,
@@ -276,7 +276,7 @@ class ScenarioConfigTask:
                 'name': 'Pour'
             }
         
-        # 任务9：PowerOn
+        # Task 9: PowerOn
         if self.n_t > 9:
             tasks[9] = {
                 'function': PowerOnTask.poweron_function,
@@ -285,7 +285,7 @@ class ScenarioConfigTask:
                 'name': 'PowerOn'
             }
         
-        # 任务10：PowerOff
+        # Task 10: PowerOff
         if self.n_t > 10:
             tasks[10] = {
                 'function': PowerOffTask.poweroff_function,
@@ -294,7 +294,7 @@ class ScenarioConfigTask:
                 'name': 'PowerOff'
             }
         
-        # 任务11：Rearrange
+        # Mission 11: Rearrange
         if self.n_t > 11:
             tasks[11] = {
                 'function': RearrangeTask.rearrange_function,
@@ -303,7 +303,7 @@ class ScenarioConfigTask:
                 'name': 'Rearrange'
             }
         
-        # 任务12：Wait
+        # Task 12: Wait
         if self.n_t > 12:
             tasks[12] = {
                 'function': WaitTask.wait_function,
@@ -312,7 +312,7 @@ class ScenarioConfigTask:
                 'name': 'Wait'
             }
         
-        # 机器人动力学模型
+        # Robot dynamics model
         robot_dyn_config = RobotDynamicsConfig(n_x=self.n_x, n_u=self.n_u)
         robot_dyn = robot_dyn_config.get_robot_dynamics()
         
@@ -324,18 +324,18 @@ class ScenarioConfigTask:
     
     def update_scenario_from_world_state(self, world_state):
         """
-        根据最新的世界状态更新场景参数，特别是与任务相关的目标。
+        Update scene parameters, especially mission-related objectives, based on the latest world state.
         """
         if not world_state:
             return
 
-        # 更新导航目标 (p_goal) - 示例：使用第一个找到的物体位置
+        # Update navigation target (p_goal) - Example: Use the first found object position
         if 'object_positions' in world_state and world_state['object_positions']:
-            # 选择一个目标，例如第一个物体
+            # Select a target, such as the first object
             first_object_name = next(iter(world_state['object_positions']))
             self.update_global_task_var('p_goal', world_state['object_positions'][first_object_name])
         
-        # 更新探索目标
+        # Update exploration goals
         if 'furniture_positions' in world_state and world_state['furniture_positions']:
             new_explore_targets = []
             for i, (name, pos) in enumerate(world_state['furniture_positions'].items()):
@@ -352,7 +352,7 @@ class ScenarioConfigTask:
         if 0 <= robot_idx < self.n_r and len(features) == self.n_f:
             self.scenario_params['A'][:, robot_idx] = features
         else:
-            print(f"警告：索引超出范围或特征数量不匹配，robot_idx: {robot_idx}, features: {features}")
+            print(f"Warning: Index out of range or mismatch in number of features, robot_idx: {robot_idx}, features: {features}")
     
     def get_robot_features(self):
         return self.scenario_params['A']

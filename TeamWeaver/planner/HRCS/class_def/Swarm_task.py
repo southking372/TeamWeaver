@@ -61,8 +61,8 @@ class Swarm:
             'robots': None
         }
 
-        plt.rcParams['font.sans-serif'] = ['SimHei']  # 使用黑体
-        plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
+        plt.rcParams['font.sans-serif'] = ['SimHei']  # SimHei font for CJK plot labels
+        plt.rcParams['axes.unicode_minus'] = False  # fix minus sign rendering with CJK fonts
     
     def getPoses(self):
         if not self.robots:
@@ -466,7 +466,7 @@ class Swarm:
             
             # Triangulate the polygon
             points = np.vstack((xP, yP)).T
-            # 加入扰动项试图修正Delaunay三角化的问题
+            #Add a disturbance term to try to correctDelaunaytriangulation problem
             # points = np.vstack((xP + 1e-8*np.random.rand(4), yP + 1e-8*np.random.rand(4))).T
             
             # Add error handling for Delaunay triangulation
@@ -514,19 +514,19 @@ class Swarm:
             return np.array([Sx, Sy]) / A, A
     
     def centroid_uniform(self, P):
-        """计算均匀密度下多边形的质心
+        """Calculate the centroid of a polygon with uniform density
         
         Args:
-            P: shape (2, n) 的数组，表示多边形的顶点坐标
+            P: shape (2, n)An array representing the vertex coordinates of the polygon
             
         Returns:
-            G: 质心坐标
-            A: 面积
+            G:Center of mass coordinates
+            A:area
         """
-        if P is None or P.shape[1] < 3:  # 至少需要3个点才能形成多边形
+        if P is None or P.shape[1] < 3:  #At least 3 points are needed to form a polygon
             return np.zeros(2), 0
             
-        # 计算简单多边形的质心
+        #Calculate the centroid of a simple polygon
         n = P.shape[1]
         A = 0
         Cx = 0
@@ -534,20 +534,20 @@ class Swarm:
         
         for i in range(n):
             j = (i + 1) % n
-            # 计算叉积
+            #Calculate the cross product
             cross_product = P[0, i] * P[1, j] - P[0, j] * P[1, i]
             A += cross_product
             Cx += (P[0, i] + P[0, j]) * cross_product
             Cy += (P[1, i] + P[1, j]) * cross_product
         
         A = A / 2
-        if abs(A) < 1e-10:  # 避免除以接近零的数
+        if abs(A) < 1e-10:  #Avoid dividing by numbers close to zero
             return np.zeros(2), 0
             
         Cx = Cx / (6 * A)
         Cy = Cy / (6 * A)
         
-        # 面积应该为正
+        #Area should be positive
         if A < 0:
             A = -A
             

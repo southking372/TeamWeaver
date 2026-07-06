@@ -26,13 +26,13 @@ class WaitTask:
                         'wait_elapsed_time': global_vars_manager.get_var('wait_elapsed_time', 0.0)
                     }
                 else:
-                    print("全局变量管理器缺少必要的方法")
+                    print("Global vars manager is missing required methods")
                     global_vars_dict = {}
             else:
-                print("无法找到global_vars_manager")
+                print("Could not find global_vars_manager")
         
         except Exception as e:
-            print(f"获取全局变量管理器时出错: {e}")
+            print(f"Error getting global vars manager: {e}")
             global_vars_dict = None
             
         return global_vars_dict
@@ -61,5 +61,5 @@ class WaitTask:
 
     @staticmethod
     def apply_motion_control(x_i, t, i, vars_dict, dt):
-        # 对于等待任务，机器人不移动，直接返回当前状态
+        # For wait tasks, the robot does not move; return current state
         return x_i 

@@ -225,8 +225,8 @@ class PromptBuilder:
         max_tasks_per_phase: int = 6,
     ) -> str:
         """
-        基于“任务分解后的所有实例任务 + 阶段划分”，构建一个全局性的精炼提示，
-        用于指导整体协同与阶段路线图。输出风格与 build_miqp_guidance_addition/miqp_guidance 保持一致。
+based on“All instance tasks after task decomposition + phase division”, build a global refinement prompt,
+Used to guide overall collaboration and phased roadmap. The output style is the same asbuild_miqp_guidance_addition/miqp_guidanceBe consistent.
         """
         guidance_parts: List[str] = []
 
@@ -270,7 +270,7 @@ class PromptBuilder:
                     phase_head += f" (max_parallel: {max_parallel})"
                 roadmap_lines.append(phase_head + ":")
 
-                # 展示任务概述（限长）
+                #Show task overview (limited length)
                 shown = 0
                 for task in tasks:
                     if shown >= max_tasks_per_phase:
@@ -295,7 +295,7 @@ class PromptBuilder:
         # ]
         # guidance_parts.append("\n".join(strategy_lines))
 
-        # 5) Closing note (保持与 build_miqp_guidance_addition 一致的口吻)
+        # 5) Closing note (keep withbuild_miqp_guidance_additionconsistent tone)
         guidance_parts.append(
             "\nThis is a suggestion. You can explore the target place for more information, and adjust the plan based on your reasoning."
         )

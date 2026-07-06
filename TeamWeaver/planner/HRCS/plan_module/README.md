@@ -1,242 +1,242 @@
-# HRCS Plan Module架构说明
+# HRCS Plan Module Architecture
 
-## 📋 概述
+## 📋 Overview
 
-`plan_module/`文件夹包含了MIQP-LLM混合规划系统的核心执行模块，负责将MIQP优化结果与LLM推理能力相结合，实现智能、稳定的任务规划和执行管理。这些模块采用了**目标导向设计**，专注于实现高质量的规划决策和执行控制。
+The `plan_module/` folder contains the core execution modules of the MIQP-LLM hybrid planning system. It combines MIQP optimization results with LLM reasoning to deliver intelligent, stable task planning and execution management. These modules follow a **goal-oriented design**, focused on high-quality planning decisions and execution control.
 
-## 🏗️ 架构设计理念
+## 🏗️ Architecture Design Philosophy
 
-### 核心设计原则
-- **目标导向**：提供目标指导而非直接动作命令，保持LLM的决策自主性
-- **智能增强**：MIQP优化为LLM提供全局最优的宏观指导
-- **反馈驱动**：基于执行反馈进行学习和调整，提升系统稳定性
-- **模块解耦**：每个模块职责明确，便于独立测试和扩展
+### Core Design Principles
+- **Goal-oriented**: Provide goal guidance rather than direct action commands, preserving LLM decision autonomy
+- **Intelligent enhancement**: MIQP optimization supplies globally optimal macro-level guidance to the LLM
+- **Feedback-driven**: Learn and adapt from execution feedback to improve system stability
+- **Module decoupling**: Each module has a clear responsibility for independent testing and extension
 
-### 执行流程
+### Execution Flow
 ```
-MIQP优化 → TaskHelper分配 → ActionManager验证 → 
-PromptBuilder增强 → ErrorHandler恢复 → ExecutionManager更新 → 
-FeedbackManager评估
+MIQP Optimization → TaskHelper Assignment → ActionManager Validation → 
+PromptBuilder Enhancement → ErrorHandler Recovery → ExecutionManager Update → 
+FeedbackManager Evaluation
 ```
 
-## 📦 模块详解
+## 📦 Module Details
 
-### 1. `action_manager.py` - 智能动作管理器
-**核心职责**：解析LLM响应并验证动作的目标一致性
+### 1. `action_manager.py` - Intelligent Action Manager
+**Core responsibility**: Parse LLM responses and validate action goal consistency
 
-#### 主要功能：
-- **动作解析**：将LLM响应转换为结构化的高级动作
-- **目标导向验证**：验证LLM动作是否有助于实现阶段目标
-- **智能调整**：在保持LLM决策自主性的前提下提供目标导向建议
+#### Main features:
+- **Action parsing**: Convert LLM responses into structured high-level actions
+- **Goal-oriented validation**: Verify whether LLM actions help achieve phase objectives
+- **Intelligent adjustment**: Provide goal-oriented suggestions while preserving LLM decision autonomy
 
-#### 关键方法：
+#### Key methods:
 ```python
-# 解析LLM响应中的高级动作
+# Parse high-level actions from LLM response
 def parse_high_level_actions(llm_response: str, agents) -> Dict[int, Tuple[str, str, Optional[str]]]
 
-# 目标导向的动作验证和调整
+# Goal-oriented action validation and adjustment
 def adjust_actions_with_phase_awareness(
     high_level_actions, agent_task_assignments, current_phase, agents
 ) -> Dict[int, Tuple[str, str, Optional[str]]]
 
-# 验证动作是否推进目标实现
+# Verify whether an action advances objective achievement
 def _action_advances_objective(action_name, action_target, objective) -> bool
 
-# 为目标建议合适的动作
+# Suggest appropriate actions for an objective
 def _suggest_action_for_objective(objective, original_action) -> Tuple[str, str, Optional[str]]
 ```
 
-#### 设计特点：
+#### Design characteristics:
 ```python
-# 目标导向验证逻辑示例
+# Goal-oriented validation logic example
 if self._action_advances_objective(llm_action, llm_target, primary_objective):
-    # LLM的动作有助于目标实现，保持不变
+    # LLM action advances the objective, keep unchanged
     adjusted_actions[agent_id] = action_tuple
     print(f"LLM action '{llm_action}[{llm_target}]' advances objective ✓")
 else:
-    # 提供目标导向的建议但保持一定灵活性
+    # Provide goal-oriented suggestions while maintaining flexibility
     if self._is_exploration_reasonable(llm_action, primary_objective):
         adjusted_actions[agent_id] = action_tuple
 ```
 
-### 2. `task_helper.py` - 基于"简历"的智能任务分配系统
-**核心职责**：基于Agent能力特征进行智能任务分配
+### 2. `task_helper.py` - Resume-Based Intelligent Task Assignment System
+**Core responsibility**: Perform intelligent task assignment based on Agent capability profiles
 
-#### 主要功能：
-- **Agent简历管理**：维护每个Agent的能力、性能特质和动态状态
-- **智能评分分配**：基于硬约束+软约束的双层匹配机制
-- **动态学习**：根据执行反馈更新Agent性能评估
-- **负载均衡**：避免单个Agent过载
+#### Main features:
+- **Agent resume management**: Maintain each Agent's capabilities, performance traits, and dynamic state
+- **Intelligent scoring assignment**: Dual-layer matching with hard constraints + soft constraints
+- **Dynamic learning**: Update Agent performance estimates from execution feedback
+- **Load balancing**: Avoid overloading individual Agents
 
-#### Agent简历结构：
+#### Agent resume structure:
 ```python
 @dataclass
 class AgentResume:
     agent_id: int
     name: str
     
-    # 硬约束：Agent能执行的任务类型
+    # Hard constraints: task types the Agent can execute
     capabilities: List[str] = field(default_factory=list)
     
-    # 软约束：性能特质评分 (0-1)
+    # Soft constraints: performance trait scores (0-1)
     performance_traits: Dict[str, float] = field(default_factory=dict)
     
-    # 动态状态：实时决策信息
+    # Dynamic state: real-time decision information
     current_task_load: int = 0
     position: Optional[np.ndarray] = None
     history: List[Dict[str, Any]] = field(default_factory=list)
 ```
 
-#### 关键方法：
+#### Key methods:
 ```python
-# 核心评分函数：计算Agent对任务的适应性分数
+# Core scoring function: compute Agent suitability score for a task
 def _calculate_assignment_score(task: Dict[str, Any], resume: AgentResume) -> float
 
-# 基于评分的智能任务分配
+# Intelligent task assignment based on scores
 def _distribute_tasks_with_scoring(tasks, agent_ids) -> Dict[int, List[Dict[str, Any]]]
 
-# 根据反馈更新性能特质
+# Update performance traits from feedback
 def _update_traits_from_feedback(resume: AgentResume, feedback: str)
 
-# 更新Agent简历上下文
+# Update Agent resume context
 def update_resumes_from_context(world_state, agent_feedback)
 ```
 
-#### 智能分配示例：
+#### Intelligent assignment example:
 ```python
-# Agent 0: "Workhorse" - 基础能力强，速度快
+# Agent 0: "Workhorse" - strong baseline capabilities, high speed
 Agent_0_Resume = {
     'capabilities': ['Navigate', 'Explore', 'Pick', 'Place', 'Rearrange'],
     'performance_traits': {
-        'speed': 0.9,           # 高速度
-        'precision': 0.6,       # 中等精度
-        'exploration_bias': 0.5 # 中等探索倾向
+        'speed': 0.9,           # High speed
+        'precision': 0.6,       # Medium precision
+        'exploration_bias': 0.5 # Medium exploration tendency
     }
 }
 
-# Agent 1: "Specialist" - 精密操作，特殊技能
+# Agent 1: "Specialist" - precision operations, specialized skills
 Agent_1_Resume = {
     'capabilities': ['Navigate', 'Pick', 'Place', 'Clean', 'Fill', 'PowerOn'],
     'performance_traits': {
-        'speed': 0.6,                    # 中等速度
-        'precision': 0.9,                # 高精度
-        'liquid_handling_skill': 0.95,   # 液体处理专长
-        'power_control_skill': 0.9       # 电源控制专长
+        'speed': 0.6,                    # Medium speed
+        'precision': 0.9,                # High precision
+        'liquid_handling_skill': 0.95,   # Liquid handling expertise
+        'power_control_skill': 0.9       # Power control expertise
     }
 }
 ```
 
-### 3. `miqp_solver_wrapper.py` - MIQP求解器包装器
-**核心职责**：管理MIQP优化参数和求解过程
+### 3. `miqp_solver_wrapper.py` - MIQP Solver Wrapper
+**Core responsibility**: Manage MIQP optimization parameters and the solving process
 
-#### 主要功能：
-- **参数管理**：初始化和维护ScenarioConfigTask和OptimizationConfigTask
-- **阶段感知求解**：支持针对当前阶段的动态任务实例求解
-- **RTA集成**：封装RTA求解器的调用接口
+#### Main features:
+- **Parameter management**: Initialize and maintain ScenarioConfigTask and OptimizationConfigTask
+- **Phase-aware solving**: Support dynamic task instance solving for the current phase
+- **RTA integration**: Encapsulate the RTA solver call interface
 
-#### 关键方法：
+#### Key methods:
 ```python
-# 设置MIQP参数
+# Set MIQP parameters
 def task_plan_MIQP_set(agents: List["Agent"])
 
-# 阶段感知的MIQP求解
+# Phase-aware MIQP solving
 def task_plan_MIQP_solve_phase_aware(x, t, phase_task_info, agents)
 
-# 重置求解器状态
+# Reset solver state
 def reset()
 ```
 
-#### 求解流程：
+#### Solving flow:
 ```python
-# 典型求解调用
+# Typical solve call
 alpha, u, delta, time_to_solve, opt_sol_info = self.miqp_solver_wrapper.task_plan_MIQP_solve_phase_aware(
-    x,                  # 当前状态
-    t,                  # 时间
-    phase_task_info,    # 阶段任务信息
-    self._agents        # Agent列表
+    x,                  # Current state
+    t,                  # Time
+    phase_task_info,    # Phase task information
+    self._agents        # Agent list
 )
 ```
 
-### 4. `prompt_builder.py` - 智能提示构建器
-**核心职责**：构建MIQP指导的目标导向提示
+### 4. `prompt_builder.py` - Intelligent Prompt Builder
+**Core responsibility**: Build goal-oriented prompts guided by MIQP
 
-#### 主要功能：
-- **MIQP指导构建**：将优化结果转换为LLM可理解的目标描述
-- **目标导向格式化**：描述要实现的目标而非具体执行步骤
-- **上下文增强**：整合世界状态和阶段信息
+#### Main features:
+- **MIQP guidance construction**: Convert optimization results into goal descriptions the LLM can understand
+- **Goal-oriented formatting**: Describe objectives to achieve rather than specific execution steps
+- **Context enhancement**: Integrate world state and phase information
 
-#### 关键方法：
+#### Key methods:
 ```python
-# 构建MIQP指导信息
+# Build MIQP guidance information
 def build_miqp_guidance_addition(
     current_phase_tasks, agent_task_assignments, current_phase, 
     perception_connector, alpha_result=None, world_state=None
 ) -> str
 
-# 构建阶段感知的增强提示（已废弃，使用增量方式）
+# Build phase-aware enhanced prompt (deprecated; use incremental approach)
 def build_phase_aware_prompt_with_miqp_guidance(...)
 ```
 
-#### 目标导向设计示例：
+#### Goal-oriented design example:
 ```python
-# 传统动作指令（避免）
+# Traditional action instruction (avoid)
 "Execute Pick[apple]"
 
-# 目标导向指导（推荐）
+# Goal-oriented guidance (recommended)
 "achieve pickup of apple (requires navigation first if not nearby)"
 ```
 
-### 5. `error_handler.py` - 智能错误处理器
-**核心职责**：检测执行失败并提供智能恢复策略
+### 5. `error_handler.py` - Intelligent Error Handler
+**Core responsibility**: Detect execution failures and provide intelligent recovery strategies
 
-#### 主要功能：
-- **失败分析**：分析Agent状态反馈，识别失败模式
-- **恢复策略**：基于失败类型生成针对性的恢复动作
-- **历史跟踪**：维护错误历史和恢复尝试记录
+#### Main features:
+- **Failure analysis**: Analyze Agent status feedback and identify failure patterns
+- **Recovery strategies**: Generate targeted recovery actions based on failure type
+- **History tracking**: Maintain error history and recovery attempt records
 
-#### 关键方法：
+#### Key methods:
 ```python
-# 应用智能错误恢复
+# Apply intelligent error recovery
 def recover_and_log_assignments(
     agent_task_assignments, last_high_level_actions, latest_agent_response
 ) -> Dict[int, List[Dict[str, Any]]]
 
-# 分析失败并建议恢复动作
+# Analyze failure and suggest recovery actions
 def analyze_failure_and_suggest_recovery(
     agent_id, status, current_action
 ) -> Optional[Tuple[str, str, Optional[str]]]
 ```
 
-#### 智能恢复逻辑：
+#### Intelligent recovery logic:
 ```python
-# 恢复策略示例
+# Recovery strategy example
 if action_name == "Pick" and "not close enough" in status_lower:
-    return ("Navigate", target, target)  # 导航到目标位置
+    return ("Navigate", target, target)  # Navigate to target location
 elif action_name == "Pick" and "object not found" in status_lower:
-    return ("Explore", "environment", "environment")  # 探索寻找对象
+    return ("Explore", "environment", "environment")  # Explore to find object
 elif "collision" in status_lower:
-    return ("Wait", "", "")  # 等待避免冲突
+    return ("Wait", "", "")  # Wait to avoid conflict
 ```
 
-### 6. `execution_manager.py` - 执行管理器
-**核心职责**：管理规划周期的最终执行步骤
+### 6. `execution_manager.py` - Execution Manager
+**Core responsibility**: Manage the final execution steps of the planning cycle
 
-#### 主要功能：
-- **场景参数更新**：基于选定的高级动作更新场景配置
-- **ActionUpdater集成**：调用ActionUpdater处理动作转换
-- **执行状态跟踪**：维护执行相关的状态信息
+#### Main features:
+- **Scenario parameter updates**: Update scenario configuration based on selected high-level actions
+- **ActionUpdater integration**: Call ActionUpdater to handle action conversion
+- **Execution state tracking**: Maintain execution-related state information
 
-#### 关键方法：
+#### Key methods:
 ```python
-# 为执行更新场景配置
+# Update scenario configuration for execution
 def update_scenario_for_execution(
     scenario_config, world_state, high_level_actions
 ) -> None
 ```
 
-#### 调用示例：
+#### Usage example:
 ```python
-# 在llm_planner_miqp.py中的使用
+# Usage in llm_planner_miqp.py
 self.execution_manager.update_scenario_for_execution(
     self.miqp_solver_wrapper.scenario_params,
     world_state,
@@ -244,79 +244,79 @@ self.execution_manager.update_scenario_for_execution(
 )
 ```
 
-### 7. `feedback_manager.py` - 反馈管理器
-**核心职责**：管理执行反馈和阶段推进
+### 7. `feedback_manager.py` - Feedback Manager
+**Core responsibility**: Manage execution feedback and phase advancement
 
-#### 主要功能：
-- **状态提取**：从多种来源获取Agent完成状态
-- **阶段评估**：检查当前阶段是否完成
-- **阶段推进**：管理阶段转换逻辑
-- **性能跟踪**：维护Agent性能指标
+#### Main features:
+- **Status extraction**: Obtain Agent completion status from multiple sources
+- **Phase evaluation**: Check whether the current phase is complete
+- **Phase advancement**: Manage phase transition logic
+- **Performance tracking**: Maintain Agent performance metrics
 
-#### 关键方法：
+#### Key methods:
 ```python
-# 获取Agent完成状态
+# Get Agent completion statuses
 def get_agent_completion_statuses(agents, latest_agent_response) -> Dict[int, str]
 
-# 检查并推进阶段
+# Check and advance phase
 def check_and_advance_phase(
     perception_connector, agents, latest_agent_response, current_phase
 ) -> bool
 ```
 
-#### 智能状态获取：
+#### Intelligent status retrieval:
 ```python
-# 优先级策略：最新响应 > Agent状态 > 默认值
+# Priority strategy: latest response > Agent status > default value
 def get_agent_completion_statuses(agents, latest_agent_response):
     if latest_agent_response:
-        # 优先使用最新的响应
+        # Prefer the latest response
         return latest_agent_response
     else:
-        # 备用：获取Agent状态描述
+        # Fallback: get Agent status descriptions
         return {agent.uid: agent.get_last_state_description() for agent in agents}
 ```
 
-## 🔄 模块间协作流程
+## 🔄 Inter-Module Collaboration Flow
 
-### 在replan方法中的调用序列
+### Call sequence in the replan method
 
 ```python
-# Step 8: 智能任务分配
+# Step 8: Intelligent task assignment
 agent_task_assignments = self.task_helper.assign_tasks_for_phase(
     current_phase_tasks, alpha, phase_task_info, self._agents, ...
 )
 
-# Step 9: 智能错误恢复  
+# Step 9: Intelligent error recovery  
 agent_task_assignments = self.error_handler.recover_and_log_assignments(
     agent_task_assignments, self.last_high_level_actions, self.latest_agent_response
 )
 
-# Step 10: 提示构建
+# Step 10: Prompt construction
 miqp_guidance = self.prompt_builder.build_miqp_guidance_addition(
     current_phase_tasks, agent_task_assignments, current_phase, ...
 )
 
-# Step 11: LLM调用（反馈增强）
+# Step 11: LLM call (feedback-enhanced)
 llm_response = self.llm.generate(self.curr_prompt + miqp_guidance, self.stopword)
 
-# Step 12: 动作解析和验证
+# Step 12: Action parsing and validation
 high_level_actions = self.action_manager.parse_high_level_actions(llm_response, self._agents)
 adjusted_actions = self.action_manager.adjust_actions_with_phase_awareness(
     high_level_actions, agent_task_assignments, current_phase, self._agents
 )
 
-# Step 13: 执行参数更新
+# Step 13: Execution parameter update
 self.execution_manager.update_scenario_for_execution(
     self.miqp_solver_wrapper.scenario_params, world_state, adjusted_actions
 )
 
-# Step 15: 反馈和阶段管理
+# Step 15: Feedback and phase management
 self._phase_transition_pending = self.feedback_manager.check_and_advance_phase(
     self.perception_connector, self._agents, self.latest_agent_response, current_phase
 )
 ```
 
-### 模块依赖关系图
+### Module dependency diagram
 ```
 MIQPSolverWrapper ─────┐
                        ├──→ TaskHelper ──→ ActionManager ──→ PromptBuilder
@@ -328,16 +328,16 @@ ExecutionManager ←────────────────────
 FeedbackManager ←────────────────────── Agent Execution Results
 ```
 
-## 📚 使用指南
+## 📚 Usage Guide
 
-### 初始化
+### Initialization
 ```python
 from habitat_llm.planner.HRCS.plan_module.action_manager import ActionManager
 from habitat_llm.planner.HRCS.plan_module.task_helper import TaskHelper
 from habitat_llm.planner.HRCS.plan_module.miqp_solver_wrapper import MIQPSolverWrapper
-# ... 其他模块
+# ... other modules
 
-# 在LLMPlanner.__init__中初始化
+# Initialize in LLMPlanner.__init__
 self.miqp_solver_wrapper = MIQPSolverWrapper()
 self.task_helper = TaskHelper(self._agents)
 self.action_manager = ActionManager(self.actions_parser)
@@ -347,73 +347,73 @@ self.execution_manager = ExecutionManager()
 self.feedback_manager = FeedbackManager()
 ```
 
-### 典型使用流程
+### Typical usage flow
 ```python
-# 1. 设置MIQP参数
+# 1. Set MIQP parameters
 self.miqp_solver_wrapper.task_plan_MIQP_set(self._agents)
 
-# 2. 智能任务分配
+# 2. Intelligent task assignment
 assignments = self.task_helper.assign_tasks_for_phase(...)
 
-# 3. 错误恢复
+# 3. Error recovery
 recovered_assignments = self.error_handler.recover_and_log_assignments(...)
 
-# 4. 构建增强提示
+# 4. Build enhanced prompt
 guidance = self.prompt_builder.build_miqp_guidance_addition(...)
 
-# 5. 解析和验证动作
+# 5. Parse and validate actions
 actions = self.action_manager.parse_high_level_actions(...)
 adjusted_actions = self.action_manager.adjust_actions_with_phase_awareness(...)
 
-# 6. 更新执行参数
+# 6. Update execution parameters
 self.execution_manager.update_scenario_for_execution(...)
 
-# 7. 管理反馈和阶段
+# 7. Manage feedback and phases
 phase_transition = self.feedback_manager.check_and_advance_phase(...)
 ```
 
-## 🎯 设计特色
+## 🎯 Design Highlights
 
-### 1. 目标导向而非动作导向
-- **传统方式**：直接指定"Execute Pick[object]"
-- **本系统**：描述目标"achieve pickup of object (requires navigation first)"
+### 1. Goal-oriented rather than action-oriented
+- **Traditional approach**: Directly specify "Execute Pick[object]"
+- **This system**: Describe the goal "achieve pickup of object (requires navigation first)"
 
-### 2. 智能Agent简历系统
-- **能力边界**：硬约束确保任务可执行性
-- **性能优化**：软约束优化分配效率
-- **动态学习**：根据反馈调整Agent评估
+### 2. Intelligent Agent resume system
+- **Capability boundaries**: Hard constraints ensure task executability
+- **Performance optimization**: Soft constraints optimize assignment efficiency
+- **Dynamic learning**: Adjust Agent evaluation based on feedback
 
-### 3. 反馈增强的规划循环
-- **历史保持**：维护完整的对话历史和执行反馈
-- **MIQP增强**：优化指导作为增量信息而非替换
-- **阶段感知**：基于执行阶段的动态规划调整
+### 3. Feedback-enhanced planning loop
+- **History preservation**: Maintain complete dialogue history and execution feedback
+- **MIQP enhancement**: Optimization guidance as incremental information rather than replacement
+- **Phase awareness**: Dynamic planning adjustments based on execution phase
 
-## 🧪 测试建议
+## 🧪 Testing Recommendations
 
-### 单元测试重点
-- **ActionManager**：测试目标验证逻辑和动作调整策略
-- **TaskHelper**：验证评分算法和分配公平性
-- **ErrorHandler**：测试失败识别和恢复策略的准确性
-- **PromptBuilder**：验证提示格式和目标描述的清晰性
+### Unit test focus
+- **ActionManager**: Test goal validation logic and action adjustment strategies
+- **TaskHelper**: Verify scoring algorithm and assignment fairness
+- **ErrorHandler**: Test failure identification and recovery strategy accuracy
+- **PromptBuilder**: Verify prompt format and clarity of goal descriptions
 
-### 集成测试重点
-- **MIQP-LLM一致性**：验证优化建议与LLM决策的协调性
-- **反馈闭环**：测试执行反馈对后续规划的影响
-- **阶段推进**：验证阶段转换的正确性和及时性
+### Integration test focus
+- **MIQP-LLM consistency**: Verify coordination between optimization suggestions and LLM decisions
+- **Feedback loop**: Test the impact of execution feedback on subsequent planning
+- **Phase advancement**: Verify correctness and timeliness of phase transitions
 
-## 🔧 扩展指南
+## 🔧 Extension Guide
 
-### 添加新的Agent类型
-1. 在`TaskHelper`中扩展`_initialize_agent_resumes()`
-2. 添加新的能力特质和评分逻辑
-3. 更新`_calculate_assignment_score()`方法
+### Adding new Agent types
+1. Extend `_initialize_agent_resumes()` in `TaskHelper`
+2. Add new capability traits and scoring logic
+3. Update the `_calculate_assignment_score()` method
 
-### 增加新的错误类型
-1. 在`ErrorHandler`中扩展`analyze_failure_and_suggest_recovery()`
-2. 添加新的失败模式识别逻辑
-3. 设计相应的恢复策略
+### Adding new error types
+1. Extend `analyze_failure_and_suggest_recovery()` in `ErrorHandler`
+2. Add new failure pattern recognition logic
+3. Design corresponding recovery strategies
 
-### 扩展MIQP求解器
-1. 在`MIQPSolverWrapper`中添加新的求解模式
-2. 扩展phase_task_info结构
-3. 更新求解器调用接口
+### Extending the MIQP solver
+1. Add new solving modes in `MIQPSolverWrapper`
+2. Extend the phase_task_info structure
+3. Update the solver call interface

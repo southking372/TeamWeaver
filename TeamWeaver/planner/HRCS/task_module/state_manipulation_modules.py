@@ -2,12 +2,12 @@
 import numpy as np
 
 class FillTask:
-    """Fill任务模块 - 处理填充容器的任务（Agent 1专有能力）"""
+    """Fill task module - handles container fill tasks (Agent 1 only)"""
     
     @staticmethod
     def fill_function(x, t, robot_id, vars_dict=None):
-        """Fill任务效用函数"""
-        # Agent 0 不具备Fill能力
+        """Fill task utility function"""
+        # Agent 0 cannot perform Fill
         if robot_id == 0:
             return 1000.0
         
@@ -34,7 +34,7 @@ class FillTask:
     
     @staticmethod
     def fill_gradient(x, t, robot_id, vars_dict=None):
-        """Fill任务效用函数的梯度"""
+        """Fill task utility functionthe gradient of"""
         if robot_id == 0:
             return np.zeros(3)
         
@@ -66,7 +66,7 @@ class FillTask:
     
     @staticmethod
     def apply_motion_control(x, t, robot_id, vars_dict, dt):
-        """Fill任务的运动控制"""
+        """Fill task motion control"""
         if robot_id == 0:
             return x
         
@@ -84,7 +84,7 @@ class FillTask:
         distance_to_container = np.linalg.norm(robot_pos - target_container_position)
         
         if distance_to_container <= fill_dist_thresh:
-            # 模拟填充成功
+            # simulate successful fill
             if hasattr(vars_dict, '__class__') and hasattr(vars_dict.__class__, '__name__'):
                 vars_dict.set_var('container_filled_state', True)
             else:
@@ -93,7 +93,7 @@ class FillTask:
             print(f"Robot {robot_id} successfully filled container at position {target_container_position}")
             return x
         
-        # 向目标容器移动
+        # move toward target container
         direction = target_container_position - robot_pos
         distance = np.linalg.norm(direction)
         
@@ -120,11 +120,11 @@ class FillTask:
         return x
 
 class PourTask:
-    """Pour任务模块 - 处理倾倒液体的任务（Agent 1专有能力）"""
+    """Pour task module - handles liquid pour tasks (Agent 1 only)"""
     
     @staticmethod
     def pour_function(x, t, robot_id, vars_dict=None):
-        """Pour任务效用函数"""
+        """Pour task utility function"""
         if robot_id == 0:
             return 1000.0
         
@@ -151,7 +151,7 @@ class PourTask:
     
     @staticmethod
     def pour_gradient(x, t, robot_id, vars_dict=None):
-        """Pour任务效用函数的梯度"""
+        """Pour task utility functionthe gradient of"""
         if robot_id == 0:
             return np.zeros(3)
         
@@ -183,7 +183,7 @@ class PourTask:
     
     @staticmethod
     def apply_motion_control(x, t, robot_id, vars_dict, dt):
-        """Pour任务的运动控制"""
+        """Pour task motion control"""
         if robot_id == 0:
             return x
         
@@ -201,7 +201,7 @@ class PourTask:
         distance_to_receptacle = np.linalg.norm(robot_pos - target_receptacle_position)
         
         if distance_to_receptacle <= pour_dist_thresh:
-            # 模拟倾倒成功
+            # simulate successful pour
             if hasattr(vars_dict, '__class__') and hasattr(vars_dict.__class__, '__name__'):
                 vars_dict.set_var('pour_completed_state', True)
             else:
@@ -210,7 +210,7 @@ class PourTask:
             print(f"Robot {robot_id} successfully poured into receptacle at position {target_receptacle_position}")
             return x
         
-        # 向目标容器移动
+        # move toward target container
         direction = target_receptacle_position - robot_pos
         distance = np.linalg.norm(direction)
         
@@ -237,11 +237,11 @@ class PourTask:
         return x
 
 class PowerOnTask:
-    """PowerOn任务模块 - 处理开启设备电源的任务（Agent 1专有能力）"""
+    """PowerOn task module - handles device power-on tasks (Agent 1 only)"""
     
     @staticmethod
     def poweron_function(x, t, robot_id, vars_dict=None):
-        """PowerOn任务效用函数"""
+        """PowerOn task utility function"""
         if robot_id == 0:
             return 1000.0
         
@@ -268,7 +268,7 @@ class PowerOnTask:
     
     @staticmethod
     def poweron_gradient(x, t, robot_id, vars_dict=None):
-        """PowerOn任务效用函数的梯度"""
+        """PowerOn task utility functionthe gradient of"""
         if robot_id == 0:
             return np.zeros(3)
         
@@ -300,7 +300,7 @@ class PowerOnTask:
     
     @staticmethod
     def apply_motion_control(x, t, robot_id, vars_dict, dt):
-        """PowerOn任务的运动控制"""
+        """PowerOn task motion control"""
         if robot_id == 0:
             return x
         
@@ -318,7 +318,7 @@ class PowerOnTask:
         distance_to_device = np.linalg.norm(robot_pos - target_device_position)
         
         if distance_to_device <= power_dist_thresh:
-            # 模拟开启设备成功
+            # simulate successful power-on
             if hasattr(vars_dict, '__class__') and hasattr(vars_dict.__class__, '__name__'):
                 vars_dict.set_var('device_power_state', True)
             else:
@@ -327,7 +327,7 @@ class PowerOnTask:
             print(f"Robot {robot_id} successfully powered on device at position {target_device_position}")
             return x
         
-        # 向目标设备移动
+        # move toward target device
         direction = target_device_position - robot_pos
         distance = np.linalg.norm(direction)
         
@@ -354,25 +354,25 @@ class PowerOnTask:
         return x
 
 class PowerOffTask:
-    """PowerOff任务模块 - 处理关闭设备电源的任务（Agent 1专有能力）"""
+    """PowerOff task module - handles device power-off tasks (Agent 1 only)"""
     
     @staticmethod
     def poweroff_function(x, t, robot_id, vars_dict=None):
-        """PowerOff任务效用函数"""
+        """PowerOff task utility function"""
         if robot_id == 0:
             return 1000.0
         
         if vars_dict is None:
             target_device_position = np.array([0.7, 0.4])
             power_dist_thresh = 0.15
-            device_power_state = True  # 需要关闭，所以初始状态为开启
+            device_power_state = True  # must turn off, so initial state is on
         else:
             target_device_position = vars_dict.get('target_device_position', np.array([0.7, 0.4]))
             power_dist_thresh = vars_dict.get('power_dist_thresh', 0.15)
             device_power_state = vars_dict.get('device_power_state', True)
         
         if not device_power_state:
-            return 0.1  # 已关闭
+            return 0.1  # already off
         
         robot_pos = x[:2]
         distance_to_device = np.linalg.norm(robot_pos - target_device_position)
@@ -385,7 +385,7 @@ class PowerOffTask:
     
     @staticmethod
     def poweroff_gradient(x, t, robot_id, vars_dict=None):
-        """PowerOff任务效用函数的梯度"""
+        """PowerOff task utility functionthe gradient of"""
         if robot_id == 0:
             return np.zeros(3)
         
@@ -417,7 +417,7 @@ class PowerOffTask:
     
     @staticmethod
     def apply_motion_control(x, t, robot_id, vars_dict, dt):
-        """PowerOff任务的运动控制"""
+        """PowerOff task motion control"""
         if robot_id == 0:
             return x
         
@@ -435,7 +435,7 @@ class PowerOffTask:
         distance_to_device = np.linalg.norm(robot_pos - target_device_position)
         
         if distance_to_device <= power_dist_thresh:
-            # 模拟关闭设备成功
+            # simulate successful power-off
             if hasattr(vars_dict, '__class__') and hasattr(vars_dict.__class__, '__name__'):
                 vars_dict.set_var('device_power_state', False)
             else:
@@ -444,7 +444,7 @@ class PowerOffTask:
             print(f"Robot {robot_id} successfully powered off device at position {target_device_position}")
             return x
         
-        # 向目标设备移动
+        # move toward target device
         direction = target_device_position - robot_pos
         distance = np.linalg.norm(direction)
         
@@ -471,11 +471,11 @@ class PowerOffTask:
         return x
 
 class RearrangeTask:
-    """Rearrange任务模块 - 处理重新排列对象的任务（组合Pick+Place）"""
+    """Rearrange task module - handles object rearrangement (Pick+Place combo)"""
     
     @staticmethod
     def rearrange_function(x, t, robot_id, vars_dict=None):
-        """Rearrange任务效用函数 - 组合Pick和Place的逻辑"""
+        """Rearrange task utility function - combines Pick and Place logic"""
         if vars_dict is None:
             target_object_position = np.array([0.8, -0.5])
             target_receptacle_position = np.array([-0.8, 0.7])
@@ -493,28 +493,28 @@ class RearrangeTask:
         
         robot_pos = x[:2]
         
-        # 如果其他机器人持有物体，当前机器人无法执行Rearrange
+        # If another robot holds the object, this robot cannot execute Rearrange
         if is_holding and holding_robot_id != robot_id:
             return 1000.0
         
-        # 如果当前机器人持有物体，计算到放置位置的距离
+        # If this robot holds the object, compute distance to placement location
         if is_holding and holding_robot_id == robot_id:
             distance_to_receptacle = np.linalg.norm(robot_pos - target_receptacle_position)
             utility = (distance_to_receptacle - place_dist_thresh) ** 2
             if distance_to_receptacle <= place_dist_thresh:
-                utility = 0.1  # 接近完成
+                utility = 0.1  # near completion
         else:
-            # 如果没有持有物体，计算到对象的距离
+            # If not holding object, compute distance to object
             distance_to_object = np.linalg.norm(robot_pos - target_object_position)
             utility = (distance_to_object - pick_dist_thresh) ** 2
             if distance_to_object <= pick_dist_thresh:
-                utility = 0.5  # 中间状态，需要转换到Place阶段
+                utility = 0.5  # intermediate state; transition to Place phase needed
         
         return max(0.0, utility)
     
     @staticmethod
     def rearrange_gradient(x, t, robot_id, vars_dict=None):
-        """Rearrange任务效用函数的梯度"""
+        """Gradient of Rearrange task utility function"""
         if vars_dict is None:
             target_object_position = np.array([0.8, -0.5])
             target_receptacle_position = np.array([-0.8, 0.7])
@@ -533,19 +533,19 @@ class RearrangeTask:
         robot_pos = x[:2]
         gradient = np.zeros(3)
         
-        # 如果其他机器人持有物体，零梯度
+        #If another robot holds the object,zero gradient
         if is_holding and holding_robot_id != robot_id:
             return gradient
         
-        # 根据当前状态计算梯度
+        #Calculate the gradient based on the current state
         if is_holding and holding_robot_id == robot_id:
-            # Place阶段
+            # Place phase
             distance_to_receptacle = np.linalg.norm(robot_pos - target_receptacle_position)
             if distance_to_receptacle > 1e-6:
                 direction = (robot_pos - target_receptacle_position) / distance_to_receptacle
                 gradient[:2] = 2 * (distance_to_receptacle - place_dist_thresh) * direction
         else:
-            # Pick阶段
+            # Pick phase
             distance_to_object = np.linalg.norm(robot_pos - target_object_position)
             if distance_to_object > 1e-6:
                 direction = (robot_pos - target_object_position) / distance_to_object
@@ -559,7 +559,7 @@ class RearrangeTask:
     
     @staticmethod
     def apply_motion_control(x, t, robot_id, vars_dict, dt):
-        """Rearrange任务的运动控制 - 自动状态机Pick→Place"""
+        """Rearrange task motion control - automatic Pick→Place state machine"""
         if vars_dict is None:
             return x
         
@@ -572,16 +572,16 @@ class RearrangeTask:
         
         robot_pos = x[:2]
         
-        # 如果其他机器人持有物体，停止移动
+        # If another robot holds object, stop moving
         if is_holding and holding_robot_id != robot_id:
             return x
         
-        # Place阶段：机器人持有物体，需要放置
+        # Place phase: The robot holds an object and needs to be placed
         if is_holding and holding_robot_id == robot_id:
             distance_to_receptacle = np.linalg.norm(robot_pos - target_receptacle_position)
             
             if distance_to_receptacle <= place_dist_thresh:
-                # 执行放置
+                # execute placement
                 if hasattr(vars_dict, '__class__') and hasattr(vars_dict.__class__, '__name__'):
                     vars_dict.set_var('is_holding', False)
                     vars_dict.set_var('holding_robot_id', None)
@@ -592,14 +592,14 @@ class RearrangeTask:
                 print(f"Robot {robot_id} completed Rearrange: placed object at {target_receptacle_position}")
                 return x
             
-            # 向放置位置移动
+            # move toward placement location
             target_position = target_receptacle_position
         else:
-            # Pick阶段：需要抓取物体
+            # Pick phase: Need to grab objects
             distance_to_object = np.linalg.norm(robot_pos - target_object_position)
             
             if distance_to_object <= pick_dist_thresh:
-                # 执行抓取
+                # execute pick
                 if hasattr(vars_dict, '__class__') and hasattr(vars_dict.__class__, '__name__'):
                     vars_dict.set_var('is_holding', True)
                     vars_dict.set_var('holding_robot_id', robot_id)
@@ -610,10 +610,10 @@ class RearrangeTask:
                 print(f"Robot {robot_id} Rearrange: picked object, now moving to place")
                 return x
             
-            # 向抓取位置移动
+            # move toward pick location
             target_position = target_object_position
         
-        # 通用移动逻辑
+        # generic motion logic
         direction = target_position - robot_pos
         distance = np.linalg.norm(direction)
         

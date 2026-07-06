@@ -4,8 +4,8 @@ from habitat_llm.planner.HRCS.connector.planner_utils import find_target_positio
 
 class ActionUpdater:
     """
-    处理高级动作并生成场景参数更新。
-    此类将动作处理逻辑与PerceptionConnector解耦。
+Handle high-level actions and generate scene parameter updates.
+This class combines action processing logic withPerceptionConnectorDecoupled.
     """
 
     def process_and_get_updates(
@@ -14,7 +14,7 @@ class ActionUpdater:
         world_state: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        处理所有动作并返回一个包含所有参数更新的字典。
+Processes all actions and returns a dictionary containing all parameter updates.
         """
         all_updates = {}
         motor_skill_updates = self._process_motor_skill_actions(high_level_actions, world_state)
@@ -29,61 +29,61 @@ class ActionUpdater:
         world_state: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        处理Motor Skills相关的动作更新
-        基于Agent工具配置: Navigate, Pick, Place, Rearrange, Explore, Wait, Open, Close
+deal withMotor SkillsRelated action updates
+based onAgentTool configuration: Navigate, Pick, Place, Rearrange, Explore, Wait, Open, Close
         """
         updates = {}
         
         for agent_id, action_tuple in high_level_actions.items():
-            if not action_tuple or action_tuple[2] is None:  # 跳过无效动作
+            if not action_tuple or action_tuple[2] is None:  #Skip invalid actions
                 continue
                 
             tool_name, args_str, target_name = action_tuple
             
-            # Navigation相关 (精确匹配 Navigate)
+            # NavigationRelated(exact matchNavigate)
             if tool_name == 'Navigate':
                 nav_updates = self._update_navigation_params(target_name, world_state)
                 updates.update(nav_updates)
                 print(f"DEBUG: Agent {agent_id} using Navigate to {target_name}")
             
-            # Manipulation相关 (精确匹配 Pick, Place, Rearrange)
+            # ManipulationRelated(exact matchPick, Place, Rearrange)
             elif tool_name in ['Pick', 'Place', 'Rearrange']:
                 manip_updates = self._update_manipulation_params(tool_name, target_name, world_state)
                 updates.update(manip_updates)
                 print(f"DEBUG: Agent {agent_id} using {tool_name} on {target_name}")
             
-            # Exploration相关 (精确匹配 Explore)
+            # ExplorationRelated(exact matchExplore)
             elif tool_name == 'Explore':
                 explore_updates = self._update_exploration_params(target_name, world_state)
                 updates.update(explore_updates)
                 print(f"DEBUG: Agent {agent_id} using Explore in {target_name}")
             
-            # 铰接控制 (精确匹配 Open, Close)
+            #Articulatedcontrol (exact matchOpen, Close)
             elif tool_name in ['Open', 'Close']:
-                # Open/Close 主要影响环境状态，通常不需要更新MIQP参数
+                # Open/CloseMainly affects the state of the environment and usually does not need to be updatedMIQPparameter
                 print(f"DEBUG: Agent {agent_id} using {tool_name} on {target_name}")
                 
-            # Wait动作 (精确匹配 Wait)
+            # Waitaction(exact matchWait)
             elif tool_name == 'Wait':
                 print(f"DEBUG: Agent {agent_id} waiting - no parameter updates needed")
             
-            # 未识别的动作
+            #Unrecognized action
             else:
                 print(f"WARNING: Unrecognized motor skill action: {tool_name} for Agent {agent_id}")
         
         return updates
 
     def _update_navigation_params(self, target_name: str, world_state: Dict[str, Any]) -> Dict[str, Any]:
-        """更新导航相关参数"""
+        """Update navigation related parameters"""
         updates = {}
         
-        # 查找目标位置
+        #Find target location
         target_pos = find_target_position(target_name, world_state)
         if target_pos:
-            # MIQP使用XZ平面坐标
+            # MIQPuseXZPlane coordinates
             nav_goal = np.array([target_pos[0], target_pos[2]])
             updates['p_goal'] = nav_goal
-            updates['theta_goal'] = 0.0  # 默认朝向
+            updates['theta_goal'] = 0.0  #Default orientation
             print(f"DEBUG: Updated navigation goal to {nav_goal} for target '{target_name}'")
         else:
             print(f"WARNING: Could not find position for navigation target '{target_name}'")
@@ -96,10 +96,10 @@ class ActionUpdater:
         target_name: str, 
         world_state: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """更新操作相关参数，基于精确的工具名称匹配"""
+        """renewmanipulationRelated parameters, based on exact tool name matching"""
         updates = {}
         
-        # Pick动作 (精确匹配)
+        # Pickaction(exact match)
         if tool_name == 'Pick':
             target_pos = find_target_position(target_name, world_state)
             if target_pos:
@@ -107,7 +107,7 @@ class ActionUpdater:
                 updates['target_object_position'] = obj_pos
                 print(f"DEBUG: Updated pick target to {obj_pos} for object '{target_name}'")
         
-        # Place动作 (精确匹配)
+        # Placeaction(exact match)
         elif tool_name == 'Place':
             target_pos = find_target_position(target_name, world_state)
             if target_pos:
@@ -115,10 +115,10 @@ class ActionUpdater:
                 updates['target_receptacle_position'] = place_pos
                 print(f"DEBUG: Updated place target to {place_pos} for receptacle '{target_name}'")
         
-        # Rearrange动作 (精确匹配)
+        # Rearrangeaction(exact match)
         elif tool_name == 'Rearrange':
             # Rearrange[object, spatial_relation, furniture, spatial_constraint, reference_object]
-            # 主要关注目标家具位置
+            #Mainly focus on target furniture location
             target_pos = find_target_position(target_name, world_state)
             if target_pos:
                 rearrange_pos = np.array([target_pos[0], target_pos[2]])
@@ -128,14 +128,14 @@ class ActionUpdater:
         return updates
 
     def _update_exploration_params(self, target_name: str, world_state: Dict[str, Any]) -> Dict[str, Any]:
-        """更新探索相关参数"""
+        """Update exploration related parameters"""
         updates = {}
         
-        # 基于目标生成探索点
+        #Generate exploration points based on goals
         exploration_targets = []
         
         if target_name and target_name != 'environment':
-            # 查找与目标相关的家具/区域
+            #Find furniture related to your goals/area
             for furn_name, furn_info in world_state.get('furniture_positions', {}).items():
                 if (target_name.lower() in furn_name.lower() and 
                     furn_info and 'position' in furn_info):
@@ -159,7 +159,7 @@ class ActionUpdater:
         high_level_actions: Dict[int, Tuple[str, str, Optional[str]]], 
         world_state: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """处理状态操作工具相关的动作"""
+        """Processing statusmanipulationTool related actions"""
         updates = {}
         
         for agent_id, action_tuple in high_level_actions.items():
@@ -168,7 +168,7 @@ class ActionUpdater:
                 
             tool_name, args_str, target_name = action_tuple
             
-            # 状态操作工具 (Agent 1 专有能力)
+            #statemanipulationtool(Agent1 Proprietary capabilities)
             if tool_name in ['Clean', 'Fill', 'Pour', 'PowerOn', 'PowerOff']:
                 state_updates = self._update_state_manipulation_params(tool_name, target_name, world_state, agent_id)
                 updates.update(state_updates)
@@ -183,15 +183,15 @@ class ActionUpdater:
         world_state: Dict[str, Any],
         agent_id: int
     ) -> Dict[str, Any]:
-        """更新状态操作相关参数"""
+        """update statusmanipulationRelated parameters"""
         updates = {}
         
-        # 检查Agent是否有该工具的权限 
+        #examineAgentDo you have permission for this tool?
         if agent_id == 0 and tool_name in ['Clean', 'Fill', 'Pour', 'PowerOn', 'PowerOff']:
             print(f"WARNING: Agent {agent_id} attempting to use {tool_name} but lacks this capability")
             return updates
         
-        # 获取目标对象位置
+        #Get target object location
         target_pos = find_target_position(target_name, world_state)
         
         if tool_name == 'Clean':

@@ -51,7 +51,7 @@ class FeedbackManager:
         phase_transition_pending = False
         print(f"[Step 15/15] Checking phase completion...")
         try:
-            # 智能获取agent状态 - 优先使用最新的responses
+            #Intelligent acquisitionagentStatus - latest firstresponses
             agent_statuses = self.get_agent_completion_statuses(agents, latest_agent_response)
             
             print(f"[DEBUG] Phase completion check for Phase {current_phase['phase_id']}:")
@@ -66,7 +66,7 @@ class FeedbackManager:
                     all_agents_idle = True
                     print("[DEBUG] Heuristic check: All agents appear to be idle.")
 
-            # 检查当前阶段是否完成
+            # Check whether current phase is complete
             is_complete = perception_connector.is_current_phase_complete(agent_statuses)
 
             if not is_complete and all_agents_idle and current_phase.get('tasks'):
@@ -76,7 +76,7 @@ class FeedbackManager:
             if is_complete:
                 print(f"[SUCCESS] Phase {current_phase['phase_id']} completed!")
                 
-                # 尝试推进到下一阶段
+                #Try to advance to the next stage
                 if perception_connector.advance_to_next_phase():
                     next_phase = perception_connector.get_current_phase_tasks()
                     if next_phase:
@@ -84,7 +84,7 @@ class FeedbackManager:
                         for task in next_phase['tasks']:
                             print(f"    Next: {task['task_type']} → {task['target']}")
                         
-                        # 设置阶段转换标志
+                        #set upphase transition flag
                         phase_transition_pending = True
                         print(f"[DEBUG] Phase transition pending, will force plan on next iteration")
                 else:

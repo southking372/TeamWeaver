@@ -20,8 +20,8 @@ class CoverageControl:
         """
         Get global variables dictionary from GlobalVarsManager
         """
-        # 简化实现，直接返回None
-        # 现在我们通过函数参数vars_dict显式传递全局变量
+        # Simplified: return None directly
+        # Global vars passed explicitly via vars_dict parameter
         print("Warning: get_global_vars_dict() called but not implemented. Variables should be passed via vars_dict parameter.")
         return None
     
@@ -41,7 +41,7 @@ class CoverageControl:
         if vars_dict is not None:
             p_transport_val = vars_dict.get('p_transport_t')
         else:
-            # 如果vars_dict为None，无法获取p_transport_t，返回默认值
+            # If vars_dict is None, cannot get p_transport_t; return default
             print("Warning: vars_dict is None, cannot access p_transport_t")
             return 0
         
@@ -79,12 +79,12 @@ class CoverageControl:
             G_val = vars_dict.get('G')
             
         if poi_val is None or G_val is None:
-            # 如果无法从vars_dict获取，使用默认值
+            # If unavailable from vars_dict, use default
             print(f"Warning: Required values missing. poi_val={poi_val}, G_val={G_val}")
             if poi_val is None:
-                poi_val = np.array([0, 1])  # 默认兴趣点位置
+                poi_val = np.array([0, 1])  # default POI position
             if G_val is None:
-                # 创建形状为(2, max(1,i+1))的零矩阵作为默认G值
+                # Create zero matrix shape (2, max(1,i+1)) as default G
                 G_val = np.zeros((2, max(1, i+1)))
         
         if G_val is None or i >= G_val.shape[1]:
@@ -113,12 +113,12 @@ class CoverageControl:
             G_val = vars_dict.get('G')
             
         if poi_val is None or G_val is None:
-            # 如果无法从vars_dict获取，使用默认值
+            # If unavailable from vars_dict, use default
             print(f"Warning: Required values missing. poi_val={poi_val}, G_val={G_val}")
             if poi_val is None:
-                poi_val = np.array([0, 1])  # 默认兴趣点位置
+                poi_val = np.array([0, 1])  # default POI position
             if G_val is None:
-                # 创建形状为(2, max(1,i+1))的零矩阵作为默认G值
+                # Create zero matrix shape (2, max(1,i+1)) as default G
                 G_val = np.zeros((2, max(1, i+1)))
         
         if G_val is None or i >= G_val.shape[1]:

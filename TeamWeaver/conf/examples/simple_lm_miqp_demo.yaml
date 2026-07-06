@@ -1,24 +1,23 @@
 # @package _global_
 
-# 最简单的LM-MIQP规划Demo配置
-# 不需要Habitat仿真，只需要LLM和MIQP求解器
+# Simplest LM-MIQP planning demo configuration
+# No Habitat simulation required; only LLM and MIQP solver needed
 
-# 任务指令（高级指令，不指定具体agent，让系统通过MIQP自动分配）
+# Task instruction (high-level instruction; does not specify agents—let the system assign via MIQP)
 instruction: "Collect the red object from Room1 and explore all rooms"
 
-# LLM配置
+# LLM configuration
 llm:
-  # API key（如果为空，会尝试从planner/api_key.txt读取）
+  # API key (if empty, will attempt to read from planner/api_key.txt)
   api_key: null
-  # LLM服务地址
+  # LLM service endpoint
   base_url: "https://api.moonshot.cn/v1"
-  # 模型名称
+  # Model name
   model: "moonshot-v1-32k"
-  # 最大token数
+  # Maximum token count
   max_tokens: 1200
 
-# 场景配置（可选，目前使用默认2D场景）
+# Scene configuration (optional; currently uses default 2D scene)
 scene:
-  # 可以在这里添加场景配置
+  # Scene configuration can be added here
   pass
-

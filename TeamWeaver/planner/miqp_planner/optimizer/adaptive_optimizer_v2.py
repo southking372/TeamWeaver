@@ -3,8 +3,8 @@ from functools import partial
 
 class AdaptiveTaskOptimizer:
     """
-    自适应任务优化器
-    根据场景动态调整任务函数参数，优化机器人任务分配
+    Adaptive task optimizer
+    Dynamically adjust task function params for robot task assignment
     """
     
     def __init__(self, scenario_params, global_vars_manager=None):
@@ -12,11 +12,11 @@ class AdaptiveTaskOptimizer:
         self.global_vars = global_vars_manager
         self.original_tasks = self._backup_original_tasks()
         self.optimization_history = []
-        self.adaptation_frequency = 10  # 每10次迭代更新一次
+        self.adaptation_frequency = 10  # update every 10 iterations
         self.current_iter = 0
         
     def _backup_original_tasks(self):
-        """备份原始任务函数，以便需要时恢复"""
+        """Backup original task functions for restore"""
         original = {}
         for i, task in enumerate(self.scenario_params['tasks']):
             original[i] = {
@@ -28,101 +28,101 @@ class AdaptiveTaskOptimizer:
     
     def optimize_tasks(self, x, t, task_assignment, environment_state=None):
         """
-        根据当前状态优化任务函数
+        Optimize task functions from current state
         
         Args:
-            x: 机器人状态向量
-            t: 当前时间
-            task_assignment: 当前任务分配结果
-            environment_state: 可选的环境状态信息
+            x: robot state vector
+            t: current time
+            task_assignment: current task assignment result
+            environment_state: optional environment state info
         """
         self.current_iter += 1
         
-        # 仅在特定频率下执行优化
+        # Optimize only at configured frequency
         if self.current_iter % self.adaptation_frequency != 0:
             return False
             
-        # 提取机器人位置
+        # Extract robot positions
         robot_positions = x.copy()
         
-        # 优化运输任务
-        if 1 in task_assignment:  # 任务1是运输任务
+        # Optimize transport task
+        if 1 in task_assignment:  # task 1 is transport
             transport_robots = [i for i, task in enumerate(task_assignment) if task == 1]
             self._optimize_transport_task(robot_positions, t, transport_robots)
             
-        # 优化覆盖控制任务
-        if 2 in task_assignment:  # 任务2是覆盖控制
+        # Optimize coverage control tasks
+        if 2 in task_assignment:  # Task 2 is to override control
             coverage_robots = [i for i, task in enumerate(task_assignment) if task == 2]
             self._optimize_coverage_task(robot_positions, t, coverage_robots, environment_state)
         
-        print(f"任务函数参数在 t={t:.1f}s 触发检查 (实际更新依赖内部逻辑)") # 提示检查被触发
+        print(f"Task function params checked at t={t:.1f}s  check triggered (actual update depends on internal logic)") # Prompt check is triggered
         return True
     
     def _optimize_transport_task(self, robot_positions, t, transport_robots):
-        """优化运输任务"""
-        # 获取上下文信息
+        """Optimize transport task"""
+        # Get context info
         context = self._get_transport_context(t, transport_robots)
         
-        # 计算权重因子
+        # Compute weight factors
         weights = self._calculate_transport_weights(context)
         
-        # 更新任务函数和梯度
+        # Update task function and gradient
         optimized_function = self._create_optimized_transport_function(robot_positions, weights, context, transport_robots)
         optimized_gradient = self._create_optimized_transport_gradient(robot_positions, weights, context, transport_robots)
         
-        # 应用优化后的函数和梯度
+        # Apply optimized function and gradient
         self.scenario_params['tasks'][0]['function'] = optimized_function
         # self.scenario_params['tasks'][0]['gradient'] = optimized_gradient
         
-        # 记录优化历史
+        # Record optimization history
         self._record_transport_optimization(t, weights, context)
     
     def _get_transport_context(self, t, transport_robots):
-        """获取运输任务的上下文信息"""
+        """Get contextual information for transportation tasks"""
         context = {
-            'p_transport': self.global_vars.p_transport_t,  # 当前时刻的运输目标点
-            'p_goal': self.global_vars.p_goal,              # 最终目标点
-            'p_start': self.global_vars.p_start,            # 起始点
-            'transport_robots': transport_robots,           # 参与运输的机器人
-            'time': t                                       # 当前时间
+            'p_transport': self.global_vars.p_transport_t,  # transport target at current time
+            'p_goal': self.global_vars.p_goal,              # final goal
+            'p_start': self.global_vars.p_start,            # start point
+            'transport_robots': transport_robots,           # Robots involved in transportation
+            'time': t                                       # current time
         }
         
-        # 计算进度因子
+        # Calculate progress factor
         context['progress_factor'] = self._calculate_progress_factor(
             context['p_transport'], context['p_start'], context['p_goal'])
         
         return context
     
     def _calculate_transport_weights(self, context):
-        """计算运输任务的权重因子"""
+        """Calculate weighting factors for transportation tasks"""
         progress_factor = context['progress_factor']
         
         weights = {
-            'distance': 1.0,                                    # 距离权重
-            'progress': 0.5 + 0.5 * progress_factor,            # 进度权重，随接近目标增加
-            'coordination': 0.3 * (1 - progress_factor)         # 协调权重，随接近目标减少
+            'distance': 1.0,                                    # distance weight
+            'progress': 0.5 + 0.5 * progress_factor,            # Progress weight, increasing as the target is approached
+            'coordination': 0.3 * (1 - progress_factor)         # Coordination weight, which decreases as the target is approached
         }
         
         return weights
     
     def _create_optimized_transport_function(self, robot_positions, weights, context, transport_robots):
-        """创建优化后的运输任务函数"""
+        """Create an optimized transportation task function"""
         p_transport = context['p_transport']
         p_goal = context['p_goal']
-        ideal_dist = 0.3  # 理想的机器人间距
+        ideal_dist = 0.3  # ideal inter-robot spacing
         
         def optimized_function(x_i, t, robot_idx, vars_dict=None):
-            """优化后的运输任务函数"""
+            """Optimized transportation task function"""
             if vars_dict is None:
                 vars_dict = self.global_vars.get_all_vars()
             
-            # 获取当前时间的运输点
+            # Get the shipping point at current time
             p_t = vars_dict.get('p_transport_t', p_transport)
             
-            # 1. 核心目标：距离效用
+            # 1. Core Goal: Distance Utility
             distance_utility = -weights['distance'] * np.linalg.norm(x_i[:2] - p_t)**2
             
-            # 2. 协作项：协调效用
+            # 2. Collaboration item: Coordination utility
             coordination_utility = 0
             if len(transport_robots) > 1:
                 for j in transport_robots:
@@ -131,10 +131,10 @@ class AdaptiveTaskOptimizer:
                         dist = np.linalg.norm(x_i[:2] - other_pos)
                         coordination_utility += -weights['coordination'] * (dist - ideal_dist)**2
             
-            # 3. 进度项：进度奖励
+            # 3. Progress item: progress reward
             # progress_utility = -weights['progress'] * np.linalg.norm(p_t - p_goal)
             
-            # 总效用
+            # total utility
             total_utility = distance_utility + coordination_utility  # + progress_utility
             
             return total_utility
@@ -142,37 +142,37 @@ class AdaptiveTaskOptimizer:
         return optimized_function
     
     def _create_optimized_transport_gradient(self, robot_positions, weights, context, transport_robots):
-        """创建优化后的运输任务梯度函数"""
+        """Create an optimized gradient function for transportation tasks"""
         p_transport = context['p_transport']
         ideal_dist = 0.3
         
         def optimized_gradient(x_i, t, robot_idx, vars_dict=None):
-            """优化后的运输任务梯度"""
+            """Optimized transportation task gradient"""
             if vars_dict is None:
                 vars_dict = self.global_vars.get_all_vars()
             
-            # 获取当前时间的运输点
+            # Get the shipping point at current time
             p_t = vars_dict.get('p_transport_t', p_transport)
             
-            # 初始化梯度
+            # Initialize gradient
             gradient = np.zeros_like(x_i)
             
-            # 1. 距离效用的梯度
+            # 1. Gradient of distance utility
             vec_to_target = x_i[:2] - p_t
             gradient[:2] += -weights['distance'] * 2 * vec_to_target
             
-            # 2. 协调效用的梯度
+            # 2. Gradient of coordination utility
             if len(transport_robots) > 1:
                 for j in transport_robots:
                     if j != robot_idx:
                         other_pos = robot_positions[:2, j]
                         vec_to_other = x_i[:2] - other_pos
                         dist = np.linalg.norm(vec_to_other)
-                        dist_safe = dist + 1e-6  # 防止除以零
+                        dist_safe = dist + 1e-6  # Prevent division by zero
                         grad_coord_j = -weights['coordination'] * 2 * (dist - ideal_dist) * vec_to_other / dist_safe
                         gradient[:2] += grad_coord_j
             
-            # 梯度的第三个分量(旋转角)保持为0
+            # The third component of the gradient(rotation angle)remain at 0
             gradient[2] = 0
             
             return gradient
@@ -180,7 +180,7 @@ class AdaptiveTaskOptimizer:
         return optimized_gradient
     
     def _record_transport_optimization(self, t, weights, context):
-        """记录运输任务的优化历史"""
+        """Record the optimization history of transportation tasks"""
         self.optimization_history.append({
             'time': t,
             'task_type': 'transport',
@@ -192,40 +192,40 @@ class AdaptiveTaskOptimizer:
               f"Weights(d,p,c): ({weights['distance']:.2f}, {weights['progress']:.2f}, {weights['coordination']:.2f})")
     
     def _optimize_coverage_task(self, robot_positions, t, coverage_robots, environment_state=None):
-        """优化覆盖控制任务"""
-        # 获取上下文信息
+        """Optimize coverage control tasks"""
+        # Get context info
         context = self._get_coverage_context(t, coverage_robots, environment_state)
         
-        # 计算权重因子
+        # Compute weight factors
         weights = self._calculate_coverage_weights(context)
         
-        # 更新任务函数和梯度
+        # Update task function and gradient
         optimized_function = self._create_optimized_coverage_function(weights, context)
         optimized_gradient = self._create_optimized_coverage_gradient(weights, context)
         
-        # 应用优化后的函数和梯度
+        # Apply optimized function and gradient
         self.scenario_params['tasks'][1]['function'] = optimized_function
         # self.scenario_params['tasks'][1]['gradient'] = optimized_gradient
         
-        # 记录优化历史
+        # Record optimization history
         self._record_coverage_optimization(t, weights)
     
     def _get_coverage_context(self, t, coverage_robots, environment_state=None):
-        """获取覆盖控制任务的上下文信息"""
+        """Get context information covering the control task"""
         context = {
-            'poi': self.global_vars.poi,                     # 兴趣点
-            'coverage_robots': coverage_robots,              # 参与覆盖控制的机器人
-            'time': t                                        # 当前时间
+            'poi': self.global_vars.poi,                     # points of interest
+            'coverage_robots': coverage_robots,              # Robots participating in overlay control
+            'time': t                                        # current time
         }
         
-        # 添加泥地区域信息
+        # Add mud area information
         if hasattr(self.global_vars, 'x_mud'):
             context['mud_area'] = {
                 'x_mud': self.global_vars.x_mud,
                 'y_mud': self.global_vars.y_mud
             }
         
-        # 添加时间相关信息
+        # Add time related information
         if hasattr(self.global_vars, 't_start'):
             context['t_start'] = self.global_vars.t_start
             if hasattr(self.global_vars, 'delta_t'):
@@ -237,29 +237,29 @@ class AdaptiveTaskOptimizer:
         return context
     
     def _calculate_coverage_weights(self, context):
-        """计算覆盖控制任务的权重因子"""
+        """Calculate the weight factor covering the control task"""
         weights = {
-            'coverage': 1.0,       # 覆盖权重
-            'uniformity': 0.7,     # 均匀性权重
-            'mud_avoidance': 0.0   # 泥地避免权重
+            'coverage': 1.0,       # Override weight
+            'uniformity': 0.7,     # Uniformity weight
+            'mud_avoidance': 0.0   # Mud floor avoidance weights
         }
         
-        # 根据时间调整权重
+        # Adjust weights based on time
         if 'time_factor' in context:
             time_factor = context['time_factor']
             weights['coverage'] = 1.0 + 0.5 * time_factor
             weights['uniformity'] = 0.7 * (1 - 0.3 * time_factor)
         
-        # 根据环境调整权重
+        # Adjust weights according to environment
         if 'mud_area' in context:
             weights['mud_avoidance'] = 0.3
         
         return weights
     
     def _create_optimized_coverage_function(self, weights, context):
-        """创建优化后的覆盖控制任务函数"""
+        """Create an optimized coverage control task function"""
         def optimized_function(x_i, t, robot_idx, vars_dict=None):
-            """优化后的覆盖控制函数"""
+            """Optimized coverage control function"""
             if vars_dict is None:
                 if hasattr(globals().get('self', None), 'global_vars') and globals().get('self').global_vars is not None:
                     vars_dict = globals().get('self').global_vars.get_all_vars()
@@ -270,15 +270,15 @@ class AdaptiveTaskOptimizer:
                         print("Warning: Unable to access global_vars to get vars_dict.")
                         vars_dict = {}
             
-            # 获取必要信息
+            # Get necessary information
             current_pos = x_i[:2]
             current_angle = x_i[2] if len(x_i) > 2 else 0
             
-            # 获取G和poi
+            # Get G and poi
             G = vars_dict.get('G', None)
             poi = vars_dict.get('poi', np.array([0, 0]))
             
-            # 1. 核心目标：中心距离成本
+            # 1. Core Goal: Center Distance Cost
             centroid_distance_cost = 0.0
             if G is not None and isinstance(G, np.ndarray) and G.ndim == 2 and G.shape[0] == 2:
                 if 0 <= robot_idx < G.shape[1]:
@@ -289,11 +289,11 @@ class AdaptiveTaskOptimizer:
             else:
                 centroid_distance_cost = weights['coverage'] * np.sum((current_pos - poi)**2)
             
-            # 2. 核心目标：朝向成本
+            # 2. Core Goal: Toward Cost
             angle_to_poi = np.arctan2(poi[1] - current_pos[1], poi[0] - current_pos[0])
             angle_difference_cost = (current_angle - angle_to_poi)**2
             
-            # 3. 协作项：均匀性成本
+            # 3. Collaboration Item: Uniformity Cost
             uniformity_cost = 0.0
             coverage_robots = vars_dict.get('coverage_robots', [robot_idx])
             all_robot_states = vars_dict.get('x', None)
@@ -307,7 +307,7 @@ class AdaptiveTaskOptimizer:
                             ideal_dist = 0.5
                             uniformity_cost += weights['uniformity'] * (dist - ideal_dist)**2
             
-            # 4. 环境适应项：泥地惩罚
+            # 4. Environmental Adaptation: Mud Punishment
             mud_penalty = 0.0
             mud_map_info = vars_dict.get('mud_map', None)
             if mud_map_info is not None and weights['mud_avoidance'] > 0:
@@ -326,7 +326,7 @@ class AdaptiveTaskOptimizer:
                 except (KeyError, TypeError, IndexError) as e:
                     print(f"Warning (mud penalty): Error processing mud information: {e}")
             
-            # 总成本(取负值，便于最大化)
+            # total cost(Take negative values ​​to facilitate maximization)
             total_cost = -(centroid_distance_cost + angle_difference_cost + uniformity_cost + mud_penalty)
             
             return float(total_cost)
@@ -334,9 +334,9 @@ class AdaptiveTaskOptimizer:
         return optimized_function
     
     def _create_optimized_coverage_gradient(self, weights, context):
-        """创建优化后的覆盖控制任务梯度函数"""
+        """Create an optimized gradient function for the coverage control task"""
         def optimized_gradient(x_i, t, robot_idx, vars_dict=None):
-            """优化后的覆盖控制梯度"""
+            """Optimized coverage control gradient"""
             if vars_dict is None:
                 if hasattr(globals().get('self', None), 'global_vars') and globals().get('self').global_vars is not None:
                     vars_dict = globals().get('self').global_vars.get_all_vars()
@@ -347,18 +347,18 @@ class AdaptiveTaskOptimizer:
                         print("Warning: Unable to access global_vars to get vars_dict.")
                         vars_dict = {}
             
-            # 获取必要信息
+            # Get necessary information
             current_pos = x_i[:2]
             current_angle = x_i[2] if len(x_i) > 2 else 0
             
-            # 获取G和poi
+            # Get G and poi
             G = vars_dict.get('G', None)
             poi = vars_dict.get('poi', np.array([0, 0]))
             
-            # 初始化梯度向量
+            # Initialize gradient vector
             gradient = np.zeros_like(x_i)
             
-            # 1. 中心距离成本的梯度
+            # 1. Gradient of center distance cost
             if G is not None and isinstance(G, np.ndarray) and G.ndim == 2 and G.shape[0] == 2:
                 if 0 <= robot_idx < G.shape[1]:
                     centroid = G[:, robot_idx]
@@ -368,12 +368,12 @@ class AdaptiveTaskOptimizer:
             else:
                 gradient[:2] = -2 * weights['coverage'] * (current_pos - poi)
             
-            # 2. 朝向成本的梯度
-            if len(x_i) > 2:
+            # 2. Gradient towards cost
+            iflen(x_i) > 2:
                 angle_to_poi = np.arctan2(poi[1] - current_pos[1], poi[0] - current_pos[0])
                 gradient[2] = -2 * (current_angle - angle_to_poi)
                 
-                # 位置对角度梯度的贡献
+                # Contribution of position to angular gradient
                 dx_to_poi = poi[0] - current_pos[0]
                 dy_to_poi = poi[1] - current_pos[1]
                 dist_sq = dx_to_poi**2 + dy_to_poi**2
@@ -381,7 +381,7 @@ class AdaptiveTaskOptimizer:
                     gradient[0] += -2 * (current_angle - angle_to_poi) * (dy_to_poi / dist_sq)
                     gradient[1] += 2 * (current_angle - angle_to_poi) * (dx_to_poi / dist_sq)
             
-            # 3. 均匀性成本的梯度
+            # 3. Gradient of Uniformity Cost
             coverage_robots = vars_dict.get('coverage_robots', [robot_idx])
             all_robot_states = vars_dict.get('x', None)
             
@@ -396,7 +396,7 @@ class AdaptiveTaskOptimizer:
                                 ideal_dist = 0.5
                                 gradient[:2] += -2 * weights['uniformity'] * (dist - ideal_dist) * diff / dist
             
-            # 4. 泥地惩罚的梯度
+            # 4. Mud Punishment Gradient
             if weights['mud_avoidance'] > 0:
                 mud_map_info = vars_dict.get('mud_map', None)
                 if mud_map_info is not None:
@@ -422,13 +422,13 @@ class AdaptiveTaskOptimizer:
                     except (KeyError, TypeError, IndexError) as e:
                         print(f"Warning (mud gradient): Error processing mud information: {e}")
             
-            # 取负值，用于最大化
+            # Take negative values and use them to maximize
             return -gradient
         
         return optimized_gradient
     
     def _record_coverage_optimization(self, t, weights):
-        """记录覆盖控制任务的优化历史"""
+        """Record the optimization history of the coverage control task"""
         self.optimization_history.append({
             'time': t,
             'task_type': 'coverage',
@@ -436,7 +436,7 @@ class AdaptiveTaskOptimizer:
         })
     
     def _calculate_progress_factor(self, current_pos, start_pos, goal_pos):
-        """计算运输任务的进度因子 (0-1)"""
+        """Compute transport progress factor (0-1)"""
         total_distance = np.linalg.norm(goal_pos - start_pos)
         if total_distance < 1e-6:
             return 1.0
@@ -444,14 +444,14 @@ class AdaptiveTaskOptimizer:
         current_to_start = np.linalg.norm(current_pos - start_pos)
         current_to_goal = np.linalg.norm(current_pos - goal_pos)
         
-        # 使用投影方法计算进度
+        # Compute progress via projection
         progress = current_to_start / total_distance
         
-        # 确保值在0-1范围内
+        # Clamp to [0, 1]
         return max(0.0, min(1.0, progress))
     
     def reset_to_original(self):
-        """重置为原始任务函数"""
+        """Reset to original task functions"""
         for i, task in self.original_tasks.items():
             self.scenario_params['tasks'][i]['function'] = task['function']
             self.scenario_params['tasks'][i]['gradient'] = task['gradient']
@@ -460,5 +460,5 @@ class AdaptiveTaskOptimizer:
         return self.scenario_params
     
     def get_optimization_history(self):
-        """获取优化历史记录"""
+        """Get optimization history"""
         return self.optimization_history

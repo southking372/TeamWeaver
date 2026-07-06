@@ -13,22 +13,22 @@ import json
 
 @dataclass
 class TruthfulnessMetrics:
-    """事实一致性评估指标"""
-    factual_accuracy: float      # 事实准确性 [0,1]
-    world_consistency: float     # 世界状态一致性 [0,1]
-    object_existence: float      # 对象存在性准确率 [0,1]
-    spatial_accuracy: float      # 空间关系准确性 [0,1]
-    temporal_consistency: float  # 时序一致性 [0,1]
-    overall_truthfulness: float  # 总体真实性 [0,1]
+    """factual consistency evaluation index"""
+    factual_accuracy: float      #factual accuracy[0,1]
+    world_consistency: float     #world state consistency[0,1]
+    object_existence: float      #Object existence accuracy[0,1]
+    spatial_accuracy: float      #Spatial relationship accuracy[0,1]
+    temporal_consistency: float  #Timing consistency[0,1]
+    overall_truthfulness: float  #overall authenticity[0,1]
 
 class TruthfulnessEvaluator:
     """
-    事实一致性评估器
-    基于Habitat-Sim的World Graph作为事实来源，评估LLM生成内容的真实性
+fact consistency evaluator
+based onHabitat-SimofWorld GraphAs a source of fact, evaluateLLMAuthenticity of generated content
     """
     
     def __init__(self):
-        """初始化评估器"""
+        """Initialize evaluator"""
         self.spatial_relations = {
             'on': ['on_top', 'placed_on', 'sitting_on'],
             'in': ['inside', 'within', 'contained_in'],
@@ -37,51 +37,51 @@ class TruthfulnessEvaluator:
             'above': ['over', 'on_top_of']
         }
         
-        # 定义可接受的误差范围
-        self.position_tolerance = 0.5  # 位置误差容忍度（米）
-        self.angle_tolerance = 0.2     # 角度误差容忍度（弧度）
+        #Define acceptable error range
+        self.position_tolerance = 0.5  #Position error tolerance (meters)
+        self.angle_tolerance = 0.2     #Angle error tolerance (radians)
         
     def evaluate_truthfulness(self,
                             planning_trace: List[str],
                             world_graph_sequence: List[Dict[str, Any]],
                             ground_truth_states: List[Dict[str, Any]]) -> TruthfulnessMetrics:
         """
-        评估规划轨迹的事实一致性
+Assess the factual consistency of planning trajectories
         
         Args:
-            planning_trace: LLM生成的规划步骤序列
-            world_graph_sequence: 对应的世界图状态序列
-            ground_truth_states: 仿真环境的真实状态序列
+            planning_trace: LLMGenerated sequence of planning steps
+            world_graph_sequence:The corresponding world graph state sequence
+            ground_truth_states:Real state sequence of simulation environment
             
         Returns:
-            TruthfulnessMetrics: 事实一致性评估结果
+            TruthfulnessMetrics:factual consistency assessment results
         """
-        # 1. 事实准确性评估
+        #1. Assessment of factual accuracy
         factual_score = self._evaluate_factual_accuracy(
             planning_trace, world_graph_sequence
         )
         
-        # 2. 世界状态一致性评估
+        #2. World state consistency assessment
         world_consistency = self._evaluate_world_consistency(
             world_graph_sequence, ground_truth_states
         )
         
-        # 3. 对象存在性评估
+        #3. Object existence assessment
         object_existence = self._evaluate_object_existence(
             planning_trace, world_graph_sequence
         )
         
-        # 4. 空间关系准确性评估
+        #4. Assessment of spatial relationship accuracy
         spatial_accuracy = self._evaluate_spatial_accuracy(
             planning_trace, world_graph_sequence
         )
         
-        # 5. 时序一致性评估
+        #5. Timing consistency assessment
         temporal_consistency = self._evaluate_temporal_consistency(
             planning_trace, world_graph_sequence
         )
         
-        # 6. 计算总体真实性（加权平均）
+        #6. Calculate overall authenticity (weighted average)
         overall_score = (
             0.25 * factual_score +
             0.20 * world_consistency +
@@ -103,7 +103,7 @@ class TruthfulnessEvaluator:
                                  planning_trace: List[str],
                                  world_graph_sequence: List[Dict[str, Any]]) -> float:
         """
-        评估LLM生成内容中事实陈述的准确性
+EvaluateLLMAccuracy of factual statements in generated content
         """
         if not planning_trace or not world_graph_sequence:
             return 1.0
@@ -113,10 +113,10 @@ class TruthfulnessEvaluator:
         for i, step in enumerate(planning_trace):
             world_state = world_graph_sequence[i] if i < len(world_graph_sequence) else {}
             
-            # 提取步骤中的事实陈述
+            #Statement of facts in the extraction step
             factual_claims = self._extract_factual_claims(step)
             
-            # 验证每个事实陈述
+            #Verify each factual statement
             step_accuracy = self._verify_factual_claims(factual_claims, world_state)
             accuracy_scores.append(step_accuracy)
         
@@ -126,7 +126,7 @@ class TruthfulnessEvaluator:
                                   world_graph_sequence: List[Dict[str, Any]],
                                   ground_truth_states: List[Dict[str, Any]]) -> float:
         """
-        评估世界图与真实状态的一致性
+Evaluate the consistency of the world graph with the real state
         """
         if not world_graph_sequence or not ground_truth_states:
             return 1.0
@@ -134,13 +134,13 @@ class TruthfulnessEvaluator:
         consistency_scores = []
         
         for wg_state, gt_state in zip(world_graph_sequence, ground_truth_states):
-            # 比较对象位置
+            #Compare object position
             position_consistency = self._compare_object_positions(wg_state, gt_state)
             
-            # 比较对象状态
+            #Compare object status
             state_consistency = self._compare_object_states(wg_state, gt_state)
             
-            # 比较空间关系
+            #compare spatial relationships
             relation_consistency = self._compare_spatial_relations(wg_state, gt_state)
             
             step_consistency = (
@@ -156,7 +156,7 @@ class TruthfulnessEvaluator:
                                  planning_trace: List[str],
                                  world_graph_sequence: List[Dict[str, Any]]) -> float:
         """
-        评估LLM提到的对象是否真实存在
+EvaluateLLMWhether the object mentioned actually exists
         """
         if not planning_trace or not world_graph_sequence:
             return 1.0
@@ -166,17 +166,17 @@ class TruthfulnessEvaluator:
         for i, step in enumerate(planning_trace):
             world_state = world_graph_sequence[i] if i < len(world_graph_sequence) else {}
             
-            # 提取步骤中提到的对象
+            #Objects mentioned in the extraction step
             mentioned_objects = self._extract_mentioned_objects(step)
             
-            # 检查对象是否存在
+            #Check if object exists
             if mentioned_objects:
                 existing_objects = self._get_existing_objects(world_state)
                 correct_count = sum(1 for obj in mentioned_objects 
                                   if self._object_exists(obj, existing_objects))
                 step_score = correct_count / len(mentioned_objects)
             else:
-                step_score = 1.0  # 没有提到对象，默认正确
+                step_score = 1.0  #No object mentioned, default is correct
                 
             existence_scores.append(step_score)
         
@@ -186,7 +186,7 @@ class TruthfulnessEvaluator:
                                  planning_trace: List[str],
                                  world_graph_sequence: List[Dict[str, Any]]) -> float:
         """
-        评估空间关系描述的准确性
+Evaluate the accuracy of spatial relationship descriptions
         """
         if not planning_trace or not world_graph_sequence:
             return 1.0
@@ -196,16 +196,16 @@ class TruthfulnessEvaluator:
         for i, step in enumerate(planning_trace):
             world_state = world_graph_sequence[i] if i < len(world_graph_sequence) else {}
             
-            # 提取空间关系陈述
+            #Extract spatial relationship statements
             spatial_claims = self._extract_spatial_claims(step)
             
-            # 验证空间关系
+            #Verify spatial relationships
             if spatial_claims:
                 correct_count = sum(1 for claim in spatial_claims
                                   if self._verify_spatial_claim(claim, world_state))
                 step_score = correct_count / len(spatial_claims)
             else:
-                step_score = 1.0  # 没有空间关系陈述，默认正确
+                step_score = 1.0  #If there is no spatial relationship statement, the default is correct.
                 
             spatial_scores.append(step_score)
         
@@ -215,7 +215,7 @@ class TruthfulnessEvaluator:
                                      planning_trace: List[str],
                                      world_graph_sequence: List[Dict[str, Any]]) -> float:
         """
-        评估时序描述的一致性
+Evaluate the consistency of timing descriptions
         """
         if len(planning_trace) < 2 or len(world_graph_sequence) < 2:
             return 1.0
@@ -228,7 +228,7 @@ class TruthfulnessEvaluator:
             prev_state = world_graph_sequence[i-1] if i-1 < len(world_graph_sequence) else {}
             curr_state = world_graph_sequence[i] if i < len(world_graph_sequence) else {}
             
-            # 检查时序一致性
+            #Check timing consistency
             temporal_score = self._check_temporal_consistency(
                 prev_step, curr_step, prev_state, curr_state
             )
@@ -237,17 +237,17 @@ class TruthfulnessEvaluator:
         return np.mean(temporal_scores) if temporal_scores else 1.0
     
     def _extract_factual_claims(self, planning_step: str) -> List[Dict[str, Any]]:
-        """从规划步骤中提取事实陈述"""
+        """Extract factual statements from planning steps"""
         claims = []
         
-        # 提取思考过程中的陈述
+        #Extract statements from the thinking process
         thought_pattern = r"Thought:\s*(.*?)(?=\n|Agent_|$)"
         thought_match = re.search(thought_pattern, planning_step, re.DOTALL)
         
         if thought_match:
             thought_text = thought_match.group(1)
             
-            # 查找对象位置陈述
+            #Find object location statement
             location_patterns = [
                 r"(\w+)\s+(?:is|are)\s+(?:on|in|at|near)\s+(\w+)",
                 r"(\w+)\s+(?:located|placed|positioned)\s+(?:on|in|at|near)\s+(\w+)",
@@ -269,7 +269,7 @@ class TruthfulnessEvaluator:
     def _verify_factual_claims(self, 
                              claims: List[Dict[str, Any]], 
                              world_state: Dict[str, Any]) -> float:
-        """验证事实陈述的准确性"""
+        """Verify the accuracy of factual statements"""
         if not claims:
             return 1.0
             
@@ -285,20 +285,20 @@ class TruthfulnessEvaluator:
     def _verify_location_claim(self, 
                              claim: Dict[str, Any], 
                              world_state: Dict[str, Any]) -> bool:
-        """验证位置陈述的准确性"""
+        """Verify the accuracy of location statements"""
         obj_name = claim['object'].lower()
         location_name = claim['location'].lower()
         
-        # 从世界状态中查找对象和位置
+        #Find objects and locations from the world state
         objects = world_state.get('objects', {})
         furniture = world_state.get('furniture', {})
         
-        # 检查对象是否在指定位置
+        #Check if the object is at the specified location
         for obj_id, obj_info in objects.items():
             if obj_name in obj_info.get('name', '').lower():
                 obj_location = obj_info.get('parent', '')
                 
-                # 检查位置匹配
+                #Check location match
                 for furn_id, furn_info in furniture.items():
                     if (location_name in furn_info.get('name', '').lower() and 
                         furn_id == obj_location):
@@ -309,7 +309,7 @@ class TruthfulnessEvaluator:
     def _compare_object_positions(self, 
                                 wg_state: Dict[str, Any], 
                                 gt_state: Dict[str, Any]) -> float:
-        """比较对象位置的一致性"""
+        """Compare object positions for consistency"""
         if not wg_state or not gt_state:
             return 1.0
             
@@ -326,10 +326,10 @@ class TruthfulnessEvaluator:
                 wg_pos = wg_objects[obj_id].get('position', [0, 0, 0])
                 gt_pos = gt_objects[obj_id].get('position', [0, 0, 0])
                 
-                # 计算位置误差
+                #Calculate position error
                 distance = np.linalg.norm(np.array(wg_pos) - np.array(gt_pos))
                 
-                # 基于误差计算得分
+                #Calculate score based on error
                 if distance <= self.position_tolerance:
                     score = 1.0
                 else:
@@ -342,7 +342,7 @@ class TruthfulnessEvaluator:
     def _compare_object_states(self, 
                              wg_state: Dict[str, Any], 
                              gt_state: Dict[str, Any]) -> float:
-        """比较对象状态的一致性"""
+        """Compare object states for consistency"""
         if not wg_state or not gt_state:
             return 1.0
             
@@ -359,7 +359,7 @@ class TruthfulnessEvaluator:
                 wg_states = wg_objects[obj_id].get('states', {})
                 gt_states = gt_objects[obj_id].get('states', {})
                 
-                # 比较状态属性
+                #Compare status attributes
                 common_states = set(wg_states.keys()) & set(gt_states.keys())
                 
                 if common_states:
@@ -367,7 +367,7 @@ class TruthfulnessEvaluator:
                                        if wg_states[state] == gt_states[state])
                     score = correct_states / len(common_states)
                 else:
-                    score = 1.0  # 没有共同状态，默认一致
+                    score = 1.0  #There is no common state and the default is the same.
                 
                 state_scores.append(score)
         
@@ -376,7 +376,7 @@ class TruthfulnessEvaluator:
     def _compare_spatial_relations(self, 
                                  wg_state: Dict[str, Any], 
                                  gt_state: Dict[str, Any]) -> float:
-        """比较空间关系的一致性"""
+        """Compare spatial relationships for consistency"""
         if not wg_state or not gt_state:
             return 1.0
             
@@ -386,7 +386,7 @@ class TruthfulnessEvaluator:
         if not wg_relations and not gt_relations:
             return 1.0
             
-        # 计算关系匹配度
+        #Calculate relationship matching degree
         matched_relations = 0
         total_relations = max(len(wg_relations), len(gt_relations))
         
@@ -399,17 +399,17 @@ class TruthfulnessEvaluator:
         return matched_relations / total_relations if total_relations > 0 else 1.0
     
     def _extract_mentioned_objects(self, planning_step: str) -> List[str]:
-        """提取规划步骤中提到的对象"""
+        """Extract objects mentioned in the planning step"""
         objects = []
         
-        # 从动作中提取对象
+        #Extract objects from actions
         action_pattern = r"Agent_\d+_Action:\s*(.*?)(?=\n|$)"
         action_match = re.search(action_pattern, planning_step)
         
         if action_match:
             action_text = action_match.group(1)
             
-            # 查找动作参数中的对象
+            #Find objects in action parameters
             object_patterns = [
                 r"Pick\[([^\]]+)\]",
                 r"Place\[([^,]+),",
@@ -424,7 +424,7 @@ class TruthfulnessEvaluator:
         return [obj.strip() for obj in objects]
     
     def _get_existing_objects(self, world_state: Dict[str, Any]) -> Set[str]:
-        """获取世界状态中存在的对象"""
+        """Get the objects present in the world state"""
         existing_objects = set()
         
         objects = world_state.get('objects', {})
@@ -436,14 +436,14 @@ class TruthfulnessEvaluator:
         return existing_objects
     
     def _object_exists(self, mentioned_obj: str, existing_objects: Set[str]) -> bool:
-        """检查提到的对象是否存在"""
+        """Check if the mentioned object exists"""
         mentioned_obj = mentioned_obj.lower().strip()
         
-        # 精确匹配
+        #exact match
         if mentioned_obj in existing_objects:
             return True
             
-        # 模糊匹配（包含关系）
+        #Fuzzy matching (inclusion relationship)
         for existing_obj in existing_objects:
             if mentioned_obj in existing_obj or existing_obj in mentioned_obj:
                 return True
@@ -451,17 +451,17 @@ class TruthfulnessEvaluator:
         return False
     
     def _extract_spatial_claims(self, planning_step: str) -> List[Dict[str, Any]]:
-        """提取空间关系陈述"""
+        """Extract spatial relationship statements"""
         spatial_claims = []
         
-        # 从思考过程中提取空间关系
+        #Extract spatial relationships from the thinking process
         thought_pattern = r"Thought:\s*(.*?)(?=\n|Agent_|$)"
         thought_match = re.search(thought_pattern, planning_step, re.DOTALL)
         
         if thought_match:
             thought_text = thought_match.group(1)
             
-            # 查找空间关系描述
+            #Find spatial relationship descriptions
             spatial_patterns = [
                 r"(\w+)\s+is\s+(on|in|near|under|above)\s+(\w+)",
                 r"(\w+)\s+(?:placed|located|positioned)\s+(on|in|near|under|above)\s+(\w+)"
@@ -481,12 +481,12 @@ class TruthfulnessEvaluator:
     def _verify_spatial_claim(self, 
                             claim: Dict[str, Any], 
                             world_state: Dict[str, Any]) -> bool:
-        """验证空间关系陈述"""
+        """Verify spatial relationship statements"""
         obj1 = claim['object1'].lower()
         relation = claim['relation'].lower()
         obj2 = claim['object2'].lower()
         
-        # 从世界状态中获取空间关系
+        #Get spatial relationships from world state
         spatial_relations = world_state.get('spatial_relations', [])
         
         for rel in spatial_relations:
@@ -502,27 +502,27 @@ class TruthfulnessEvaluator:
                                   curr_step: str,
                                   prev_state: Dict[str, Any], 
                                   curr_state: Dict[str, Any]) -> float:
-        """检查时序一致性"""
-        # 提取前后步骤的动作
+        """Check timing consistency"""
+        #Extract the actions of the previous and next steps
         prev_action = self._extract_action(prev_step)
         curr_action = self._extract_action(curr_step)
         
         if not prev_action or not curr_action:
             return 1.0
             
-        # 检查动作的因果关系是否合理
-        # 例如：如果前一步是Pick，那么对象应该从原位置消失
+        #Check whether the cause and effect relationship of the action is reasonable
+        #For example: if the previous step wasPick, then the object should disappear from its original position
         if 'pick' in prev_action.lower():
-            # 检查对象是否被正确移动
+            #Check if the object is correctlymovement
             return self._verify_pick_effect(prev_action, prev_state, curr_state)
         elif 'place' in prev_action.lower():
-            # 检查对象是否被正确放置
+            #Check if the object is placed correctly
             return self._verify_place_effect(prev_action, prev_state, curr_state)
         
-        return 1.0  # 其他情况默认一致
+        return 1.0  #In other cases, the default is the same
     
     def _extract_action(self, planning_step: str) -> str:
-        """提取动作描述"""
+        """Extract action description"""
         action_pattern = r"Agent_\d+_Action:\s*(.*?)(?=\n|$)"
         match = re.search(action_pattern, planning_step)
         return match.group(1).strip() if match else ""
@@ -531,22 +531,22 @@ class TruthfulnessEvaluator:
                           action: str, 
                           prev_state: Dict[str, Any], 
                           curr_state: Dict[str, Any]) -> float:
-        """验证Pick动作的效果"""
-        # 简化的验证逻辑
-        # 实际应用中需要更详细的状态比较
-        return 0.8  # 默认评分
+        """verifyPickaction effect"""
+        #Simplified validation logic
+        #Practical applications require more detailed status comparisons
+        return 0.8  #Default rating
     
     def _verify_place_effect(self, 
                            action: str, 
                            prev_state: Dict[str, Any], 
                            curr_state: Dict[str, Any]) -> float:
-        """验证Place动作的效果"""
-        # 简化的验证逻辑
-        # 实际应用中需要更详细的状态比较
-        return 0.8  # 默认评分
+        """verifyPlaceaction effect"""
+        #Simplified validation logic
+        #Practical applications require more detailed status comparisons
+        return 0.8  #Default rating
     
     def _relations_match(self, rel1: Dict[str, Any], rel2: Dict[str, Any]) -> bool:
-        """检查两个空间关系是否匹配"""
+        """Check if two spatial relationships match"""
         return (rel1.get('object1', '').lower() == rel2.get('object1', '').lower() and
                 rel1.get('object2', '').lower() == rel2.get('object2', '').lower() and
                 rel1.get('relation', '').lower() == rel2.get('relation', '').lower()) 

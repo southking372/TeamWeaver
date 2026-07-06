@@ -749,13 +749,13 @@ class LLMPlanner(Planner):
         world_graph: Dict[int, "WorldGraph"],
     ) -> str:
         """
-        重新规划：集成任务分解、MIQP优化和序列化执行、支持阶段性任务执行和动态T矩阵生成
+        Replan: task decomposition, MIQP optimization, sequenced execution, phased tasks, dynamic T matrix
         
         Returns:
-            llm_response: LLM生成的响应字符串
+            llm_response: LLM-generated responsestring
         """
         print("\n" + "="*80)
-        print("🚀 开始 MIQP Enhanced Plan")
+        print("🚀 Starting MIQP Enhanced Plan")
         print("="*80)
         
         t = 0.0
@@ -788,7 +788,7 @@ class LLMPlanner(Planner):
                 "max_tokens": 1200,
             }
             
-            # 检查是否是首次分解，还是只需要获取当前阶段
+            # Check if first decomposition or only need current phase
             if not self.perception_connector.phase_manager.task_execution_phases:
                 try:
                     structured_subtasks, execution_phases = self.perception_connector.structured_decompose_task_with_sequencing(
@@ -805,7 +805,7 @@ class LLMPlanner(Planner):
                     print(f"[WARNING] Structured decomposition failed: {decompose_error}, using fallback")
                     raise decompose_error
             else:
-                # 继续执行：检查当前阶段状态
+                # Continue: check current phase status
                 current_phase = self.perception_connector.get_current_phase_tasks()
                 if current_phase:
                     print(f"[DEBUG] Continuing execution: Phase {self.perception_connector.phase_manager.current_phase_index + 1}/{len(self.perception_connector.phase_manager.task_execution_phases)}")
@@ -1194,7 +1194,7 @@ class LLMPlanner(Planner):
         print(f"  Optimization: {opt_sol_info}")
         print("="*80)
         
-        # 返回LLM响应
+        # Return LLM response
         return llm_response
 
     def get_next_action(
@@ -1328,10 +1328,10 @@ class LLMPlanner(Planner):
             agent.uid: self.replan_required for agent in self.agents
         }
 
-        # 简化的阶段推进检查
+        #Simplified stage-advance inspection
         # if (hasattr(self, 'perception_connector') and self.perception_connector and 
         #     hasattr(self, '_phase_transition_pending') and self._phase_transition_pending):
-        #     # 重置标志
+        #     #reset flag
         #     self._phase_transition_pending = False
         #     self.replan_required = True
         #     print(f"[INFO] **NEW** Phase transition detected, forcing plan on this iteration")

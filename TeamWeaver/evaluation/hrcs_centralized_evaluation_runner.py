@@ -39,11 +39,11 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         # optimizer_config = evaluation_runner_config_arg.optimizer
         super().__init__(evaluation_runner_config_arg, env_arg)
         
-        # 初始化人类建模系统相关属性
+        #Initialize human modeling system related properties
         self.human_system = None
         self.human_scenario_matrices = None
         self.task_optimizer = None
-        self.human_agent_uid = None  # 人类操作员的UID
+        self.human_agent_uid = None  #humanmanipulationmember'sUID
 
     def get_low_level_actions(
         self,
@@ -54,9 +54,9 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         """
         Given a set of observations, gets a vector of low level actions for all agents.
         """
-        # 根据planner类型和人类建模系统的状态来决定如何获取低层动作
+        #according toplannertypes and human modeling system states to determine how to obtain low-level actions
         if self.human_system is not None and hasattr(self.planner, "get_next_action_with_human"):
-            # 如果planner支持人类操作员，使用专门的方法
+            #ifplannerSupport humanitymanipulationstaff, using specialized methods
             low_level_actions, planner_info, should_end = self.planner.get_next_action_with_human(
                 instruction, 
                 observations, 
@@ -65,7 +65,7 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
                 self.human_agent_uid
             )
         else:
-            # 使用标准的get_next_action方法
+            #Use standardget_next_actionmethod
             low_level_actions, planner_info, should_end = self.planner.get_next_action(
                 instruction, observations, world_graph
             )
@@ -82,9 +82,9 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         assert isinstance(self.planner, Planner)
         self.planner.reset()
         
-        # 重置人类建模系统
+        #Reset human modeling system
         if self.human_system is not None:
-            # 这里可以添加重置人类建模系统的逻辑
+            #Logic to reset the human modeling system can be added here
             pass
 
     def _initialize_planners(self) -> None:
@@ -114,11 +114,11 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         if hasattr(self.evaluation_runner_config, "human_planner_model"):
             self._initialize_human_modeling(self.evaluation_runner_config.human_planner_model)
             if self.human_agent_uid in self.agents:
-                print(f"人类操作员 (UID: {self.human_agent_uid}) 已添加到规划器中")
-                print(f"人类操作员职业类型: {self.human_system.human_models[0].profession_type}")
-                print(f"人类操作员能力值: {self.human_system.human_models[0].capabilities}")
+                print(f"humanmanipulationmember(UID: {self.human_agent_uid}) ) added to planner")
+                print(f"humanmanipulationemployee occupation type: {self.human_system.human_models[0].profession_type}")
+                print(f"humanmanipulationStaff ability value: {self.human_system.human_models[0].capabilities}")
             else:
-                print(f"警告: 人类操作员 (UID: {self.human_agent_uid}) 未在代理列表中找到")
+                print(f"warn:humanmanipulationmember(UID: {self.human_agent_uid}) ) not found in agent list")
     
     def apply_human_capability_feedback(
         self, 
@@ -136,14 +136,14 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
                 adjusted_action["action"] = np.array(adjusted_action["action"]) * (0.5 + 0.5 * precision_factor)
             low_level_actions[self.human_agent_uid] = adjusted_action
             
-            # 记录人类操作员的任务效果
+            #record humansmanipulationemployee’s task effectiveness
             if "task_assignment" in planner_info and self.human_agent_uid in planner_info["task_assignment"]:
                 task_idx = planner_info["task_assignment"][self.human_agent_uid]
                 if task_idx > 0:
                     task_type = "transport" if task_idx == 1 else "coverage"
-                    print(f"人类操作员正在执行任务: {task_type}")
+                    print(f"humanmanipulationstaff are performing tasks: {task_type}")
                     # if self.task_optimizer is not None:
-                    #     # 这里可以添加任务优化器的更新逻辑
+                    #     #Here you can add the update logic of the task optimizer
                     #     pass
         return low_level_actions, planner_info
 
@@ -154,7 +154,7 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         
         human_descriptions = human_planner_model.get(
             "human_descriptions", 
-            ["经验丰富的操作员，擅长精确控制和快速响应，有多年操作经验"] # Here can be changed to different descriptions
+            ["Experienced operator skilled in precision control and fast response, with many years of operation experience"] # Here can be changed to different descriptions
         )
         self.human_system.initialize_humans(human_descriptions)
         self.human_scenario_matrices = self.human_system.generate_scenario_matrices()
@@ -169,10 +169,10 @@ class HRCSEvaluationRunner(CentralizedEvaluationRunner):
         self._initialize_human_modeling(human_planner_model)
         
         if hasattr(self, "planner") and isinstance(self.planner, Planner):
-            # 确保人类操作员在代理列表中
+            #ensure humanitymanipulationmember is in the agent list
             if self.human_agent_uid in self.agents:
-                print(f"人类操作员 (UID: {self.human_agent_uid}) 已添加到规划器中")
-                print(f"人类操作员职业类型: {self.human_system.human_models[0].profession_type}")
-                print(f"人类操作员能力值: {self.human_system.human_models[0].capabilities}")
+                print(f"humanmanipulationmember(UID: {self.human_agent_uid}) ) added to planner")
+                print(f"humanmanipulationemployee occupation type: {self.human_system.human_models[0].profession_type}")
+                print(f"humanmanipulationStaff ability value: {self.human_system.human_models[0].capabilities}")
             else:
-                print(f"警告: 人类操作员 (UID: {self.human_agent_uid}) 未在代理列表中找到")
+                print(f"warn:humanmanipulationmember(UID: {self.human_agent_uid}) ) not found in agent list")

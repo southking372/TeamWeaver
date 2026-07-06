@@ -3,10 +3,10 @@ import re
 from typing import Dict, Any, List, Optional, Tuple
 
 class TaskPriorityConfig:
-    """任务优先级配置类 - 简化的PARTNR 13任务到5能力映射"""
+    """Task priority configuration class - simplifiedPARTNR13 tasks to 5 capabilities mapping"""
     
     def __init__(self):
-        # PARTNR 13任务类型映射 (与scenario_params_task.py一致)
+        # PARTNR13Task type mapping(andscenario_params_task.pyconsistent)
         self.partnr_task_mapping = {
             'Navigate': 0,   'Explore': 1,    'Pick': 2,       'Place': 3,
             'Open': 4,       'Close': 5,      'Clean': 6,      'Fill': 7,
@@ -14,62 +14,62 @@ class TaskPriorityConfig:
             'Wait': 12
         }
         
-        # 13任务到5能力分类的映射关系
+        #Mapping relationship between 13 tasks and 5 ability classifications
         self.task_to_capability_mapping = {
-            # 基础移动能力 (能力0)
+            #Basemovementability(Ability 0)
             'Navigate': 0, 'Explore': 0, 'Wait': 0,
-            # 物体操作能力 (能力1)
+            #objectmanipulationability(Ability 1)
             'Pick': 1, 'Place': 1, 'Rearrange': 1,
-            # 基本控制能力 (能力2)
+            #basiccontrolability(Ability 2)
             'Open': 2, 'Close': 2,
-            # 液体处理能力 (能力3)
+            # liquidprocessing power(Ability 3)
             'Clean': 3, 'Fill': 3, 'Pour': 3,
-            # 电源控制能力 (能力4)
+            # powercontrolability(Ability 4)
             'PowerOn': 4, 'PowerOff': 4
         }
         
         self.base_priority_weights = {
-            0: 1.5,   # Navigate - 重要的基础移动
-            1: 2.0,   # Explore - 早期探索重要
-            2: 3.0,   # Pick - 核心操作任务
-            3: 3.0,   # Place - 核心操作任务
-            4: 2.5,   # Open - 铰接控制
-            5: 2.5,   # Close - 铰接控制
-            6: 2.0,   # Clean - 状态操作
-            7: 2.0,   # Fill - 状态操作
-            8: 2.0,   # Pour - 状态操作
-            9: 1.5,   # PowerOn - 设备控制
-            10: 1.5,  # PowerOff - 设备控制
-            11: 3.5,  # Rearrange - 复合高优先级任务
-            12: 0.1   # Wait - 最低优先级
+            0: 1.5,   # Navigate- Important basicsmovement
+            1: 2.0,   # Explore- Early exploration is important
+            2: 3.0,   # Pick- CoremanipulationTask
+            3: 3.0,   # Place- CoremanipulationTask
+            4: 2.5,   # Open- Articulatedcontrol
+            5: 2.5,   # Close- Articulatedcontrol
+            6: 2.0,   # Clean- statemanipulation
+            7: 2.0,   # Fill- statemanipulation
+            8: 2.0,   # Pour- statemanipulation
+            9: 1.5,   # PowerOn- equipmentcontrol
+            10: 1.5,  # PowerOff- equipmentcontrol
+            11: 3.5,  # Rearrange- Composite high-priority tasks
+            12: 0.1   # Wait- lowest priority
         }
         self.early_time_threshold = 20.0
         self.explore_early_boost = 1.0
         self.wait_penalty = 0.05
         
         self.llm_response_boost = {
-            'active_action': 4.0,      # 当前正在执行的动作
-            'next_logical': 3.0,       # 逻辑上的下一步动作
-            'prerequisite_completed': 2.5,  # 前置条件完成后的动作
-            'agent_capability_match': 2.0,  # 与Agent能力匹配的动作
-            'task_progression': 3.5,   # 任务进展相关的动作
+            'active_action': 4.0,      #Action currently being performed
+            'next_logical': 3.0,       #logical next step
+            'prerequisite_completed': 2.5,  #Action after completion of preconditions
+            'agent_capability_match': 2.0,  #andAgentAbility-matching actions
+            'task_progression': 3.5,   #Actions related to task progress
         }
         
-        # 序列执行任务进展权重
+        #Sequence execution task progress weight
         self.task_sequence_weights = {
-            'navigate_to_pick': 2.5,    # Navigate完成后提升Pick
-            'pick_to_place': 3.0,       # Pick完成后提升Place
-            'explore_to_pick': 2.0,     # Explore完成后提升Pick
-            'place_to_navigate': 1.5,   # Place完成后提升Navigate
+            'navigate_to_pick': 2.5,    # NavigatePromote after completionPick
+            'pick_to_place': 3.0,       # PickPromote after completionPlace
+            'explore_to_pick': 2.0,     # ExplorePromote after completionPick
+            'place_to_navigate': 1.5,   # PlacePromote after completionNavigate
         }
 
 class TaskUtilityNormalizer:
-    """任务效用归一化器 - LLM响应驱动的优先级调整"""
+    """Task utility normalizer -LLMResponse-driven prioritization"""
     
     def __init__(self, dim: Dict[str, int], tasks: List[Dict[str, Any]], 
                  task_priority_config: Optional[TaskPriorityConfig] = None):
         """
-        初始化任务效用归一化器
+Initialize task utility normalizer
         """
         self.dim = dim
         self.tasks = tasks
@@ -85,16 +85,16 @@ class TaskUtilityNormalizer:
         }
 
     def update_config(self, **kwargs):
-        """动态更新优先级配置"""
+        """Dynamically update priority configuration"""
         for key, value in kwargs.items():
             if hasattr(self.config, key):
                 setattr(self.config, key, value)
 
     def parse_llm_response(self, llm_response: str) -> Dict[int, Tuple[str, str]]:
-        """解析LLM响应，提取Agent动作信息"""
+        """parseLLMresponse, extractionAgentaction information"""
         parsed_actions = {}
         
-        # 【TODO】正则表达式匹配 Agent_X_Action: ActionName[target] 格式
+        # 【TODO】Regular expression matchingAgent_X_Action: ActionName[target]Format
         action_pattern = r'Agent_(\d+)_Action:\s*(\w+)\[([^\]]*)\]'
         matches = re.findall(action_pattern, llm_response)
         
@@ -109,7 +109,7 @@ class TaskUtilityNormalizer:
         return parsed_actions
 
     def analyze_task_progression(self, current_actions: Dict[int, Tuple[str, str]]) -> Dict[str, float]:
-        """分析任务进展状态，动作序列逻辑递进"""
+        """Analyze task progress status and logically progress the action sequence"""
         progression_weights = {}
         if self.last_parsed_actions:
             for agent_id, (last_action, last_target) in self.last_parsed_actions.items():
@@ -131,13 +131,13 @@ class TaskUtilityNormalizer:
         return progression_weights
 
     def calculate_llm_driven_priorities(self, llm_response: str, global_vars_dict: Dict[str, Any]) -> Dict[int, float]:
-        """基于LLM响应计算任务优先级权重"""
+        """based onLLMCalculate task priority weight in response"""
         
         current_actions = self.parse_llm_response(llm_response)
         progression_weights = self.analyze_task_progression(current_actions)
         llm_priorities = {j: 1.0 for j in range(self.dim['n_t'])}
         
-        # 基于当前动作调整优先级
+        #Adjust priority based on current action
         for agent_id, (action_name, action_target) in current_actions.items():
             task_idx = self.config.partnr_task_mapping.get(action_name)
             
@@ -145,7 +145,7 @@ class TaskUtilityNormalizer:
                 llm_priorities[task_idx] *= self.config.llm_response_boost['active_action']
                 # print(f"[DEBUG] LLM boost: Task {task_idx} ({action_name}) priority × {self.config.llm_response_boost['active_action']}")
                 
-                # 特殊处理Rearrange任务 (涉及Pick和Place)
+                #special handlingRearrangeTask(involvingPickandPlace)
                 if action_name == 'Rearrange':
                     pick_idx = self.config.partnr_task_mapping.get('Pick', 2)
                     place_idx = self.config.partnr_task_mapping.get('Place', 3)
@@ -186,7 +186,7 @@ class TaskUtilityNormalizer:
     def calculate_scaling_factors(self, x: np.ndarray, t: float, global_vars_dict: Dict[str, Any] = None,
                                  llm_response: str = "") -> Dict[int, float]:
         """
-        计算任务效用缩放因子 - 整合LLM响应、时间和状态信息
+Compute Task Utility Scaling Factor - IntegrationLLMResponse, time and status information
         """
         n_r = self.dim['n_r']
         n_t = self.dim['n_t']
@@ -194,7 +194,7 @@ class TaskUtilityNormalizer:
         if global_vars_dict is None:
             global_vars_dict = {}
         
-        # === 1. 计算基础任务效用值 ===
+        # ===1. Calculate basic task utility value===
         task_values = {j: [] for j in range(n_t)}
         for i in range(n_r):
             for j in range(n_t):
@@ -207,9 +207,9 @@ class TaskUtilityNormalizer:
                         print(f"[WARNING] Task {j} utility calculation failed: {e}")
                         task_values[j].append(1.0)
                 else:
-                    task_values[j].append(1.0)  # 任务未定义时的默认值
+                    task_values[j].append(1.0)  #Default value when task is not defined
         
-        # === 2. 计算基础统计信息 ===
+        # ===2. Calculate basic statistics===
         task_stats = {}
         for j in range(n_t):
             values = task_values[j]
@@ -223,31 +223,31 @@ class TaskUtilityNormalizer:
             else:
                 task_stats[j] = {'mean': 1.0, 'max': 1.0, 'min': 1.0, 'std': 0.0}
         
-        # === 3. 基础优先级权重 ===
+        # ===3. Basic priority weight===
         base_weights = self.config.base_priority_weights.copy()
         
-        # === 4. 时间和状态驱动的调整 ===
+        # ===4. Time- and status-driven adjustments===
         time_weights = {j: 1.0 for j in range(n_t)}
         wait_idx = self.config.partnr_task_mapping.get('Wait', 12)
         time_weights[wait_idx] = self.config.wait_penalty
         
-        # 早期探索提升
+        #Early exploration and improvement
         explore_idx = self.config.partnr_task_mapping.get('Explore', 1)
         if t < self.config.early_time_threshold:
             time_weights[explore_idx] = self.config.explore_early_boost
         
-        # 探索状态检查
+        #Explore status check
         exploration_targets = global_vars_dict.get('exploration_targets', [])
         num_unexplored = sum(1 for target in exploration_targets if not target.get('explored', False))
         if num_unexplored > 0:
             time_weights[explore_idx] *= 1.5
         
-        # === 5. LLM响应驱动的优先级调整 ===
+        # === 5. LLMResponse-driven prioritization===
         llm_weights = {j: 1.0 for j in range(n_t)}
         if llm_response.strip():
             llm_weights = self.calculate_llm_driven_priorities(llm_response, global_vars_dict)
         
-        # === 6. 计算最终缩放因子 ===
+        # ===6. Calculate the final scaling factor===
         task_means = np.array([task_stats[j]['mean'] for j in range(n_t)])
         valid_means = task_means[task_means > 1e-6]
         max_mean = np.max(valid_means) if len(valid_means) > 0 else 1.0
@@ -280,16 +280,16 @@ class TaskUtilityNormalizer:
                 'norm_factor': norm_factor
             }
         
-        # === 7. 保存调试信息 ===
+        # ===7. Save debugging information===
         self.debug_info['last_scaling_factors'] = scaling_factors
         self.debug_info['priority_adjustments'] = priority_adjustments
         
-        # 输出关键调整信息
+        #Output key adjustment information
         if llm_response.strip():
             print(f"[DEBUG] LLM-driven scaling factors updated:")
             for j, factor in scaling_factors.items():
                 task_name = self._get_task_name_by_index(j)
-                if factor > 2.0:  # 只显示显著提升的任务
+                if factor > 2.0:  #Show only tasks with significant improvements
                     print(f"  Task {j} ({task_name}): {factor:.2f}")
         
         return scaling_factors

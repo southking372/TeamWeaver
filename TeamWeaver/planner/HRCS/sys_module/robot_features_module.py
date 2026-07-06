@@ -9,16 +9,16 @@ class RobotFeaturesConfig:
         self.robot_features = self._initialize_robot_features()
     
     def _initialize_robot_features(self):
-        # 初始化机器人的特征和能力
+        # Initialize the robot’s characteristics and capabilities
         A = np.zeros((self.n_f, self.n_r))
         
-        # 机器人特征配置（行：特征，列：机器人）
-        # 特征1：行走，特征2：运输，特征3：Manipulation，特征4：交流计算
-        A[:, 0] = [1, 1, 1, 1]  # 机器人1：全功能
-        A[:, 1] = [1, 1, 1, 1]  # 机器人2：全功能
-        A[:, 2] = [1, 1, 0, 0]  # 机器人3：行走+运输专长
-        A[:, 3] = [1, 0, 1, 0]  # 机器人4：行走+Manipulation专长
-        A[:, 4] = [1, 0, 0, 1]  # 机器人5：行走+交流计算专长
+        # Robot feature configuration (row: feature, column: robot)
+        # Feature 1: Walking, Feature 2: Transportation, Feature 3: Manipulation, Feature 4: Communication Computing
+        A[:, 0] = [1, 1, 1, 1]  # robot 1: full capability
+        A[:, 1] = [1, 1, 1, 1]  # robot 2: full capability
+        A[:, 2] = [1, 1, 0, 0]  # robot 3: locomotion+transport specialist
+        A[:, 3] = [1, 0, 1, 0]  # robot 4: locomotion+manipulation specialist
+        A[:, 4] = [1, 0, 0, 1]  # robot 5: locomotion+communication-compute specialist
         
         return {
             'A': A,
@@ -42,17 +42,17 @@ class RobotFeaturesConfig:
         if 0 <= robot_idx < self.n_r and 0 <= feature_idx < self.n_f:
             self.robot_features['A'][feature_idx, robot_idx] = value
         else:
-            print(f"警告：索引超出范围，robot_idx: {robot_idx}, feature_idx: {feature_idx}")
+            print(f"Warning: Index out of range, robot_idx: {robot_idx}, feature_idx: {feature_idx}")
     
     def update_robot_features(self, robot_idx, features):
         if 0 <= robot_idx < self.n_r and len(features) == self.n_f:
             self.robot_features['A'][:, robot_idx] = features
         else:
-            print(f"警告：索引超出范围或特征数量不匹配，robot_idx: {robot_idx}, features: {features}")
+            print(f"Warning: Index out of range or mismatch in number of features, robot_idx: {robot_idx}, features: {features}")
     
     def get_robot_capabilities(self, robot_idx):
         if 0 <= robot_idx < self.n_r:
             return self.robot_features['A'][:, robot_idx]
         else:
-            print(f"警告：索引超出范围，robot_idx: {robot_idx}")
+            print(f"Warning: Index out of range, robot_idx: {robot_idx}")
             return None 

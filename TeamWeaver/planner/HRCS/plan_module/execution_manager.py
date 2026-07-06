@@ -16,10 +16,10 @@ class ExecutionManager:
         self.active_updates = []
         
         self.execution_history = {
-            'actions': [],  # List[Dict[str, Any]] - 记录每轮的actions
-            'observations': [],  # List[Dict[str, Any]] - 记录每轮的observations
-            'agent_positions': [],  # List[Dict[int, Dict]] - 记录每轮agent位置
-            'timestamps': []  # List[float] - 记录时间戳
+            'actions': [],  # List[Dict[str, Any]] - Record actions for each round
+            'observations': [],  # List[Dict[str, Any]] - Record observations for each round
+            'agent_positions': [],  # List[Dict[int, Dict]] - Record the agent position in each round
+            'timestamps': []  # List[float] - Record timestamp
         }
         self.max_history_length = 10
 
@@ -31,7 +31,7 @@ class ExecutionManager:
         self.execution_state = {}
         self.active_updates = []
         
-        # 重置历史记录
+        # Reset history
         self.execution_history = {
             'actions': [],
             'observations': [],
@@ -48,20 +48,20 @@ class ExecutionManager:
         timestamp: float = None
     ) -> None:
         """
-        记录执行上下文历史信息
+        Record execution context history information
         """
         import time
         if timestamp is None:
             timestamp = time.time()
         
-        # 记录当前轮次信息
+        # Record current round information
         self.execution_history['actions'].append(high_level_actions.copy())
         self.execution_history['observations'].append(observations.copy())
         self.execution_history['agent_positions'].append(agent_positions.copy())
         self.execution_history['timestamps'].append(timestamp)
         
-        # 保持历史记录在限制范围内
-        if len(self.execution_history['actions']) > self.max_history_length:
+        # Keep history within limits
+        iflen(self.execution_history['actions']) > self.max_history_length:
             for key in self.execution_history:
                 self.execution_history[key] = self.execution_history[key][-self.max_history_length:]
         
@@ -69,20 +69,20 @@ class ExecutionManager:
 
     def get_recent_actions(self, agent_id: int, lookback_steps: int = 3) -> List[Tuple[str, str, Optional[str]]]:
         """
-        获取指定agent最近几步的actions
+        Get the actions of the specified agent in recent steps
         
         Args:
             agent_id: agent ID
-            lookback_steps: 回看步数
+            lookback_steps: Look back at steps
             
         Returns:
-            最近的actions列表
+            List of recent actions
         """
         recent_actions = []
         
-        # 从最近的历史记录开始，向前查找
+        # Start with the most recent history and look forward
         for i in range(min(lookback_steps, len(self.execution_history['actions']))):
-            index = -(i + 1)  # 从最后一个开始
+            index = -(i + 1)  # Start from the last one
             action_dict = self.execution_history['actions'][index]
             
             if agent_id in action_dict:
@@ -92,9 +92,9 @@ class ExecutionManager:
 
     def get_latest_observation(self, agent_id: int) -> Optional[str]:
         """
-        获取指定agent的最新观察结果
+        Get the latest observation results of the specified agent
         Returns:
-            最新的观察结果字符串
+            latest observation string
         """
         if not self.execution_history['observations']:
             return None
@@ -104,9 +104,9 @@ class ExecutionManager:
 
     def get_agent_position_history(self, agent_id: int, lookback_steps: int = 3) -> List[Dict[str, Any]]:
         """
-        获取指定agent的历史位置信息
+        Get the historical location information of the specified agent
         Returns:
-            历史位置信息列表
+            List of historical location information
         """
         position_history = []
         

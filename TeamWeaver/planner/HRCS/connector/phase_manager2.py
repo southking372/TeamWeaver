@@ -7,8 +7,8 @@ from habitat_llm.planner.HRCS.connector.planner_utils import extract_json_from_t
 
 class PhaseManager:
     """
-    负责管理任务执行的阶段（Phases）。
-    此类将所有与阶段创建、状态管理和推进相关的逻辑与PerceptionConnector解耦。
+Responsible for managing the stage of task execution (Phases）。
+This class combines all logic related to stage creation, state management, and advancement withPerceptionConnectorDecoupled.
     """
     def __init__(self, llm_client: Optional[Any] = None):
         self.llm_client = llm_client
@@ -17,7 +17,7 @@ class PhaseManager:
         self.completed_tasks: List[str] = []
 
     def set_execution_phases(self, phases: List[Dict[str, Any]]):
-        """设置任务执行阶段"""
+        """Set task execution phase"""
         self.task_execution_phases = phases
         self.current_phase_index = 0
         self.completed_tasks = []
@@ -31,12 +31,12 @@ class PhaseManager:
         llm_config: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """
-        使用LLM分解指令，并返回结构化的子任务列表。
+useLLMDecompose instructions and return a structured list of subtasks.
         """
         if not self.llm_client:
             raise ValueError("LLM client not initialized in PhaseManager. Cannot decompose task.")
 
-        # 使用LLM进行初步分解
+        #useLLMCarry out preliminary decomposition
         structured_subtasks = self._decompose_with_sequencing_prompt(
             instruction, world_description, agent_info_string, llm_config
         )
@@ -50,7 +50,7 @@ class PhaseManager:
         agent_info_string: str,
         llm_config: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """使用专门的序列化分解prompt"""
+        """Use specialized serialization decompositionprompt"""
         prompt_template = get_miqp_prompt("sequencing_decomposition", get_llm_config())
         sequencing_prompt = prompt_template(
             instruction, world_description, agent_info_string
@@ -104,7 +104,7 @@ Follow these rules strictly. A plan without a necessary `Navigate` before `Pick`
             raise
 
     def _parse_sequenced_decomposition_response(self, response_text: str) -> List[Dict[str, Any]]:
-        """解析带序列信息的任务分解响应"""
+        """Parse task decomposition responses with sequence information"""
         try:
             json_text = extract_json_from_text(response_text, list)
             if not json_text:
@@ -158,13 +158,13 @@ Follow these rules strictly. A plan without a necessary `Navigate` before `Pick`
             return []
 
     def get_current_phase_tasks(self) -> Optional[Dict[str, Any]]:
-        """ 获取当前阶段的任务"""
+        """ Get tasks for current phase"""
         if (self.current_phase_index < len(self.task_execution_phases)):
             return self.task_execution_phases[self.current_phase_index]
         return None
 
     def advance_to_next_phase(self) -> bool:
-        """ 推进到下一个执行阶段"""
+        """ Advance to next execution phase"""
         if self.current_phase_index < len(self.task_execution_phases) - 1:
             current_phase = self.task_execution_phases[self.current_phase_index]
             for task in current_phase['tasks']:
@@ -185,7 +185,7 @@ Follow these rules strictly. A plan without a necessary `Navigate` before `Pick`
         return False
 
     def is_current_phase_complete(self, agent_statuses: Dict[int, str]) -> bool:
-        """ 检查当前阶段是否完成"""
+        """ Check whether current phase is complete"""
         current_phase = self.get_current_phase_tasks()
         if not current_phase:
             return True

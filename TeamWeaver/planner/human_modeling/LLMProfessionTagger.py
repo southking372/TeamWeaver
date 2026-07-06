@@ -3,77 +3,81 @@ import os
 
 class LLMProfessionTagger:
     """
-    Human Career打标器
-    使用LLM为人类打标职业，并提供职业的初始能力值
+    Human career tagger.
+    Uses an LLM to assign a profession label to each human and provide initial capability values.
     """
     
     def __init__(self, api_key=None, base_url="https://api.moonshot.cn/v1"):
         """
-        初始化人类职业打标器
+        Initialize the human profession tagger
         
-        参数:
-            api_key: Moonshot API密钥，如果为None则从环境变量获取
-            base_url: Moonshot API基础URL
+        Parameters:
+            api_key: Moonshot API key; if None, read from environment
+            base_url: Moonshot API base URL
         """
-        # 初始化LLM接口
+        # initialize LLM interface
         self._init_llm_interface(api_key, base_url)
         
-        # 加载职业模板
+        # load profession templates
         self.profession_templates = self._load_profession_templates()
         
     def _init_llm_interface(self, api_key=None, base_url="https://api.moonshot.cn/v1"):
         """
-        初始化LLM接口
+        Initialize LLM interface
         
-        参数:
-            api_key: Moonshot API密钥，如果为None则从环境变量获取
-            base_url: Moonshot API基础URL
+        Parameters:
+            api_key: Moonshot API key; if None, read from environment
+            base_url: Moonshot API base URL
         """
-        # 如果未提供API密钥，则从环境变量获取
+        # read API key from environment if not provided
         if api_key is None:
             api_key = os.environ.get("MOONSHOT_API_KEY")
             if api_key is None:
-                raise ValueError("未提供Moonshot API密钥，且环境变量中未设置MOONSHOT_API_KEY")
+                raise ValueError("Moonshot API key not provided and MOONSHOT_API_KEY is not set in environment")
         
-        # 初始化OpenAI客户端
+        # initialize OpenAI client
         self.client = OpenAI(
             api_key=api_key,
             base_url=base_url
         )
         
-        # 初始化消息历史
+        # initialize message history
         self.messages = [
             {
                 "role": "system", 
-                "content": "你是一个专业的人类职业分析助手，擅长根据人类描述将其归类为最匹配的职业类型。你会提供安全、有帮助、准确的回答。"
+                "content": (
+                    "You are a professional human career analysis assistant. "
+                    "You classify human descriptions into the best-matching profession type. "
+                    "You provide safe, helpful, and accurate answers."
+                )
             }
         ]
         
     def _load_profession_templates(self):
-        """加载职业模板"""
-        # 可以从文件或数据库加载
+        """Load profession templates."""
+        # can be loaded from file or database
         return {
-            "操作员": {
+            "Operator": {
                 "transport": 0.7,
                 "coverage": 0.6,
                 "precision": 0.8
             },
-            "监控员": {
+            "Monitor": {
                 "transport": 0.5,
                 "coverage": 0.9,
                 "precision": 0.7
             },
-            "协调员": {
+            "Coordinator": {
                 "transport": 0.6,
                 "coverage": 0.7,
                 "precision": 0.9
             },
-            "专家": {
+            "Expert": {
                 "transport": 0.4,
                 "coverage": 0.8,
                 "precision": 0.95
             },
-            "新手": {
+            "Novice": {
                 "transport": 0.5,
                 "coverage": 0.5,
                 "precision": 0.5
@@ -81,24 +85,24 @@ class LLMProfessionTagger:
         }
         
     def tag_human_profession(self, human_description):
-        """使用LLM为人类打标职业"""
-        # 构建更详细的提示
+        """Use LLM to tag a human with a profession."""
+        # build detailed prompt
         prompt = f"""
-        请根据以下人类描述，将其归类为最匹配的职业类型。
+        Based on the following human description, classify them into the best-matching profession type.
         
-        人类描述: {human_description}
+        Human description: {human_description}
         
-        可选职业类型:
-        - 操作员: 擅长操作和控制，具有较高的精确控制能力
-        - 监控员: 擅长观察和监控，具有较高的覆盖控制能力
-        - 协调员: 擅长协调和沟通，具有较高的协调能力
-        - 专家: 在特定领域具有深厚知识和丰富经验
-        - 新手: 经验较少，各项能力处于基础水平
+        Available profession types:
+        - Operator: skilled at operation and control, with strong precision control capability
+        - Monitor: skilled at observation and monitoring, with strong coverage control capability
+        - Coordinator: skilled at coordination and communication, with strong coordination capability
+        - Expert: deep knowledge and extensive experience in a specific domain
+        - Novice: limited experience, baseline capability across all areas
         
-        请只返回职业名称，不要有其他解释。如果描述的职业不在上述列表中，请选择最接近的职业。
+        Return only the profession name with no other explanation. If the description does not match any type exactly, choose the closest one.
         """
         
-        # 调用LLM生成响应
+        # call LLM
         response = self.generate(prompt)
         print("[DEBUGING] Now we using LLM Tagger to tag the human profession: ")
         print(f"human description: {human_description}")
@@ -106,38 +110,38 @@ class LLMProfessionTagger:
 
         profession = response.strip()
         
-        # 如果返回的职业不在模板中，使用默认值
+        # if returned profession is not in templates, use default or extract match
         if profession not in self.profession_templates:
-            # 尝试从响应中提取职业名称
+            # try to extract profession name from response
             for template_profession in self.profession_templates.keys():
                 if template_profession in profession:
                     profession = template_profession
                     break
             else:
-                profession = "操作员"  # 默认职业
+                profession = "Operator"  # default profession
             
         return profession
         
     def get_initial_capabilities(self, profession):
-        """获取职业的初始能力值"""
-        return self.profession_templates.get(profession, self.profession_templates["操作员"])
+        """Get initial capability values for a profession."""
+        return self.profession_templates.get(profession, self.profession_templates["Operator"])
         
     def generate(self, prompt):
         """
-        生成LLM响应
+        Generate LLM response
         
-        参数:
-            prompt: 提示文本
+        Parameters:
+            prompt: prompt text
             
-        返回:
-            LLM生成的响应文本
+        Returns:
+            LLM-generated response text
         """
         self.messages.append({
             "role": "user",
             "content": prompt
         })
         
-        # 调用API
+        # call API
         completion = self.client.chat.completions.create(
             model="moonshot-v1-8k",
             messages=self.messages,
@@ -151,10 +155,14 @@ class LLMProfessionTagger:
         return assistant_message.content
         
     def reset_conversation(self):
-        """重置对话历史"""
+        """Reset conversation history."""
         self.messages = [
             {
                 "role": "system", 
-                "content": "你是一个专业的人类职业分析助手，擅长根据人类描述将其归类为最匹配的职业类型。你会提供安全、有帮助、准确的回答。"
+                "content": (
+                    "You are a professional human career analysis assistant. "
+                    "You classify human descriptions into the best-matching profession type. "
+                    "You provide safe, helpful, and accurate answers."
+                )
             }
         ]

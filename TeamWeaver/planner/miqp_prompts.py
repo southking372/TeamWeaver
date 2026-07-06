@@ -1,5 +1,5 @@
 """
-MIQP Prompts - 维护用于与LLM交互的各种prompt模板
+MIQP Prompts - prompt templates for LLM interaction
 """
 
 import json
@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Union
 
 class BasePrompt:
     """
-    Prompt模板的基类
+    Base class for prompt templates
     """
     def __init__(self, name: str, config: Dict[str, Any]):
         self.name = name
@@ -16,13 +16,13 @@ class BasePrompt:
 
     def __call__(self, *args, **kwargs) -> str:
         """
-        使用提供的参数格式化prompt模板。
+        Format the prompt template with provided parameters.
         """
         return self.prompt_template.format(*args, **kwargs)
 
 class TaskDecompositionPrompt(BasePrompt):
     """
-    用于标准任务分解的Prompt。
+    Prompt for standard task decomposition.
     """
     def __init__(self, name: str, config: Dict[str, Any]):
         super().__init__(name, config)
@@ -66,7 +66,7 @@ Provide the output in the following JSON format:
 
 class MIQPAnalysisPrompt(BasePrompt):
     """
-    用于分析任务约束以生成MIQP矩阵的Prompt。
+    Prompt for analyzing task constraints to generate MIQP matrices.
     """
     def __init__(self, name: str, config: Dict[str, Any]):
         super().__init__(name, config)
@@ -97,7 +97,7 @@ Example format:
 
 class SequencingDecompositionPrompt(BasePrompt):
     """
-    用于带有依赖序列的任务分解的Prompt。
+    Prompt for task decomposition with dependency sequencing.
     """
     def __init__(self, name: str, config: Dict[str, Any]):
         super().__init__(name, config)
@@ -143,7 +143,7 @@ JSON OUTPUT FORMAT (JSON only, no comments):
 
 class MatrixGenerationPrompt(BasePrompt):
     """
-    用于直接从LLM生成MIQP矩阵的Prompt。
+    Prompt for generating MIQP matrices directly from LLM.
     """
     def __init__(self, name: str, config: Dict[str, Any]):
         super().__init__(name, config)
@@ -217,7 +217,7 @@ _PROMPT_TYPES = {
 
 def get_miqp_prompt(name: str, config: Dict[str, Any] = None) -> Union[TaskDecompositionPrompt, MIQPAnalysisPrompt, SequencingDecompositionPrompt, MatrixGenerationPrompt]:
     """
-    Prompt工厂函数，用于根据名称获取相应的prompt实例。
+    Prompt factory: return a prompt instance by name.
     """
     if config is None:
         config = {}

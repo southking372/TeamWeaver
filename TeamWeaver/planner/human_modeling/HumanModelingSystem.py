@@ -6,7 +6,8 @@ from habitat_llm.planner.human_modeling.PerformanceEvaluator import PerformanceE
 class HumanModelingSystem:
     """
     Human Modeling System
-    整合LLM职业打标和启发式能力适应，生成与机器人集群协作的矩阵和参数
+    Integrates LLM profession tagging and heuristic capability adaptation
+    to produce matrices and parameters for human-robot swarm collaboration.
     """
     
     def __init__(self, llm_tagger, num_humans=3):
@@ -22,64 +23,64 @@ class HumanModelingSystem:
         self.human_models = []
         self.performance_evaluator = None
         
-        # 任务类型映射
+        # task type mapping
         self.task_type_mapping = {
-            "transport": 0,  # 运输任务
-            "coverage": 1,   # 覆盖控制任务
-            "precision": 2   # 精确控制任务
+            "transport": 0,  # transport task
+            "coverage": 1,   # coverage control task
+            "precision": 2   # precision control task
         }
         
-        # 能力类型映射
+        # capability type mapping
         self.capability_mapping = {
-            "locomotion": 0,  # 移动能力
-            "monitoring": 1,  # 监控能力
-            "coordination": 2 # 协调能力
+            "locomotion": 0,  # locomotion capability
+            "monitoring": 1,  # monitoring capability
+            "coordination": 2 # coordination capability
         }
         
     def initialize_humans(self, human_descriptions):
         """
         Initialize human models based on human descriptions
         
-        参数:
-            human_descriptions: 人类描述列表
+        Parameters:
+            human_descriptions: list of human descriptions
         """
         num_humans = min(self.num_humans, len(human_descriptions))
         
         for i in range(num_humans):
             profession = self.llm_tagger.tag_human_profession(human_descriptions[i])
-            # 获取职业的初始能力值
+            # get initial capabilities for the profession
             initial_capabilities = self.llm_tagger.get_initial_capabilities(profession)
             
-            # 创建HumanCareerModel实例
+            # create HumanCareerModel instance
             human_model = HumanCareerModel(
                 profession_type=profession,
                 initial_capabilities=initial_capabilities
             )
             
-            # 添加到人类模型列表
+            # add to human model list
             self.human_models.append(human_model)
         
-        # 初始化性能评估器
+        # initialize performance evaluator
         self.performance_evaluator = PerformanceEvaluator(self.human_models)
         
     def update_performance(self, human_idx, task_type, execution_data):
         """
-        更新人类性能
+        Update human performance
         
-        参数:
-            human_idx: 人类模型索引
-            task_type: 任务类型
-            execution_data: 执行数据
+        Parameters:
+            human_idx: human model index
+            task_type: task type
+            execution_data: execution data
         """
-        # 确保索引有效
+        # validate index
         if human_idx < 0 or human_idx >= len(self.human_models):
-            raise ValueError(f"无效的人类模型索引: {human_idx}")
+            raise ValueError(f"Invalid human model index: {human_idx}")
             
-        # 确保任务类型有效
+        # validate task type
         if task_type not in self.task_type_mapping:
-            raise ValueError(f"无效的任务类型: {task_type}")
+            raise ValueError(f"Invalid task type: {task_type}")
             
-        # 评估性能
+        # evaluate performance
         performance_score = self.performance_evaluator.evaluate_performance(
             human_idx, task_type, execution_data
         )
@@ -88,72 +89,72 @@ class HumanModelingSystem:
         
     def generate_scenario_matrices(self):
         """
-        生成与scenario_params.py兼容的矩阵和参数
+        Generate matrices and parameters compatible with scenario_params.py
         
-        返回:
-            包含A, T, Hs, ws矩阵以及nr, nt, nc, nf, nx, nu参数的字典
+        Returns:
+            dict containing A, T, Hs, ws matrices and nr, nt, nc, nf, nx, nu parameters
         """
-        # 计算参数
-        n_r = self.num_humans  # 人类数量
-        n_t = len(self.task_type_mapping)  # 任务类型数量
-        n_c = len(self.capability_mapping)  # 能力类型数量
-        n_f = 3  # 特征数量 (与机器人特征对应)
-        n_x = 3  # 状态维度
-        n_u = 3  # 控制输入维度
+        # compute parameters
+        n_r = self.num_humans  # number of humans
+        n_t = len(self.task_type_mapping)  # number of task types
+        n_c = len(self.capability_mapping)  # number of capability types
+        n_f = 3  # number of features (aligned with robot features)
+        n_x = 3  # state dimension
+        n_u = 3  # control input dimension
         
-        # 初始化特征矩阵 A (n_f x n_r)
+        # initialize feature matrix A (n_f x n_r)
         A = np.zeros((n_f, n_r))
         
-        # 初始化任务能力需求矩阵 T (n_t x n_c)
+        # initialize task capability requirement matrix T (n_t x n_c)
         T = np.zeros((n_t, n_c))
         
-        # 初始化能力特征矩阵 Hs (n_c个矩阵)
+        # initialize capability feature matrices Hs (n_c matrices)
         Hs = [None] * n_c
         
-        # 初始化能力权重矩阵 ws (n_c个矩阵)
+        # initialize capability weight matrices ws (n_c matrices)
         ws = [None] * n_c
         
-        # 填充矩阵
+        # fill matrices
         for i, human_model in enumerate(self.human_models):
-            # 填充特征矩阵 A
-            # 特征1: 移动能力
+            # fill feature matrix A
+            # feature 1: locomotion capability
             A[0, i] = human_model.get_capability("transport")
-            # 特征2: 监控能力
+            # feature 2: monitoring capability
             A[1, i] = human_model.get_capability("coverage")
-            # 特征3: 精确控制能力
+            # feature 3: precision control capability
             A[2, i] = human_model.get_capability("precision")
         
-        # 填充任务能力需求矩阵 T
-        # 运输任务需要移动能力和协调能力
-        T[0, 0] = 1  # 移动能力
-        T[0, 2] = 0.5  # 协调能力
+        # fill task capability requirement matrix T
+        # transport task requires locomotion and coordination
+        T[0, 0] = 1  # locomotion
+        T[0, 2] = 0.5  # coordination
         
-        # 覆盖控制任务需要监控能力和移动能力
-        T[1, 1] = 1  # 监控能力
-        T[1, 0] = 0.7  # 移动能力
+        # coverage control task requires monitoring and locomotion
+        T[1, 1] = 1  # monitoring
+        T[1, 0] = 0.7  # locomotion
         
-        # 精确控制任务需要精确控制能力和协调能力
-        T[2, 2] = 1  # 协调能力
-        T[2, 0] = 0.3  # 移动能力
+        # precision control task requires precision control and coordination
+        T[2, 2] = 1  # coordination
+        T[2, 0] = 0.3  # locomotion
         
-        # 填充能力特征矩阵 Hs
-        # 移动能力由特征1贡献
+        # fill capability feature matrices Hs
+        # locomotion contributed by feature 1
         Hs[0] = np.zeros((1, n_f))
         Hs[0][0, 0] = 1
         
-        # 监控能力由特征2贡献
+        # monitoring contributed by feature 2
         Hs[1] = np.zeros((1, n_f))
         Hs[1][0, 1] = 1
         
-        # 协调能力由特征3贡献
+        # coordination contributed by feature 3
         Hs[2] = np.zeros((1, n_f))
         Hs[2][0, 2] = 1
         
-        # 填充能力权重矩阵 ws
+        # fill capability weight matrices ws
         for i in range(n_c):
-            ws[i] = np.eye(1)  # 单位矩阵
+            ws[i] = np.eye(1)  # identity matrix
         
-        # 返回结果
+        # return result
         return {
             'A': A,
             'T': T,
@@ -165,4 +166,4 @@ class HumanModelingSystem:
             'n_f': n_f,
             'n_x': n_x,
             'n_u': n_u
-        } 
+        }

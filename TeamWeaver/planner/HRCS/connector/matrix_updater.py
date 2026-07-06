@@ -8,14 +8,14 @@ from habitat_llm.planner.HRCS.connector.planner_utils import extract_json_from_t
 
 class MatrixUpdater:
     """
-    负责更新MIQP优化器所需的矩阵 (T, A, ws)。
-    此类将所有矩阵更新逻辑（基于LLM或规则）与PerceptionConnector解耦。
+Responsible for updatesMIQPmatrix required by the optimizer(T, A, ws)。
+This class will contain all matrix update logic (based onLLMor rules) withPerceptionConnectorDecoupled.
     """
 
-    # --- MIQP矩阵初始化常量 ---
+    # --- MIQP matrix initialization constants ---
     BASE_TASK_CAPABILITY_REQUIREMENTS = np.array([
-        # 任务: [Navigate, Explore, Pick, Place, Open, Close, Clean, Fill, Pour, PowerOn, PowerOff, Rearrange, Wait]
-        # 能力: [移动, 操作, 控制, 液体, 电源]
+        #Task: [Navigate, Explore, Pick, Place, Open, Close, Clean, Fill, Pour, PowerOn, PowerOff, Rearrange, Wait]
+        # capabilities: [movement, manipulation, control, liquid, power]
         [1, 0, 0, 0, 0],  # Navigate
         [1, 0, 0, 0, 0],  # Explore
         [0, 1, 0, 0, 0],  # Pick
@@ -32,19 +32,19 @@ class MatrixUpdater:
     ], dtype=float)
 
     BASE_ROBOT_CAPABILITIES = np.array([
-        [2.0, 1.8],  # 移动
-        [2.0, 1.8],  # 操作
-        [2.0, 1.8],  # 控制
-        [0.0, 1.4],  # 液体 (仅Agent 1)
-        [0.0, 1.3]   # 电源 (仅Agent 1)
+        [2.0, 1.8],  # movement
+        [2.0, 1.8],  # manipulation
+        [2.0, 1.8],  # control
+        [0.0, 1.4],  # liquid (onlyAgent 1)
+        [0.0, 1.3]   # power (onlyAgent 1)
     ], dtype=float)
     
     BASE_CAPABILITY_WEIGHTS = [
-        2.0 * np.eye(1),  # 移动
-        2.5 * np.eye(1),  # 操作
-        2.0 * np.eye(1),  # 控制
-        1.8 * np.eye(1),  # 液体
-        1.5 * np.eye(1)   # 电源
+        2.0 * np.eye(1),  # movement
+        2.5 * np.eye(1),  # manipulation
+        2.0 * np.eye(1),  # control
+        1.8 * np.eye(1),  # liquid
+        1.5 * np.eye(1)   # power
     ]
     
     def __init__(self, llm_client: Optional[Any] = None):
@@ -56,8 +56,8 @@ class MatrixUpdater:
         world_state: Dict[str, Any]
     ) -> Dict[str, Union[np.ndarray, List[np.ndarray]]]:
         """
-        主入口方法，根据任务分析更新MIQP的参数矩阵。
-        优先尝试LLM生成，失败则回退到基于规则的增强方法。
+Main entry method, updated based on task analysisMIQPparameter matrix.
+Try firstLLMGenerate, and fall back to the rule-based enhancement method if it fails.
         """
         try:
             print("DEBUG: Attempting to generate MIQP matrices directly from LLM response.")
@@ -85,7 +85,7 @@ class MatrixUpdater:
         self, 
         structured_subtasks: List[Dict[str, Any]]
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[List[np.ndarray]]]:
-        """通过LLM直接生成MIQP矩阵。"""
+        """passLLMGenerate directlyMIQPmatrix."""
         if not self.llm_client:
             return None, None, None
 
@@ -115,11 +115,11 @@ class MatrixUpdater:
                 "temperature": 0.1,
             }
             try:
-                # 优先使用JSON模式
+                #priority useJSONmodel
                 api_params["response_format"] = {"type": "json_object"}
                 response = self.llm_client.chat.completions.create(**api_params)
             except Exception:
-                # 如果不支持，则回退到普通模式
+                #If not supported, fall back to normal mode
                 print("Warning: `response_format` not supported, retrying without it.")
                 del api_params["response_format"]
                 response = self.llm_client.chat.completions.create(**api_params)
@@ -131,7 +131,7 @@ class MatrixUpdater:
             return None, None, None
 
     def _parse_llm_matrix_response(self, response_text: str):
-        """解析并验证从LLM返回的包含MIQP矩阵的JSON。"""
+        """Parse and verify fromLLMThe returned containsMIQPmatrixJSON。"""
         try:
             data = json.loads(response_text)
 
@@ -164,7 +164,7 @@ class MatrixUpdater:
         structured_subtasks: List[Dict[str, Any]], 
         world_state: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """使用LLM分析任务约束，为矩阵生成提供指导。"""
+        """useLLMAnalyze task constraints and provide guidance for matrix generation."""
         if not self.llm_client or not structured_subtasks:
             return self._get_default_analysis()
         
@@ -190,7 +190,7 @@ class MatrixUpdater:
             return self._get_default_analysis()
 
     def _parse_miqp_analysis_response(self, analysis_text: str) -> Dict[str, Any]:
-        """解析MIQP分析的LLM响应"""
+        """parseMIQPanalyticalLLMresponse"""
         try:
             json_text = extract_json_from_text(analysis_text, dict)
             if json_text:
@@ -213,7 +213,7 @@ class MatrixUpdater:
         structured_subtasks: List[Dict[str, Any]], 
         llm_analysis: Dict[str, Any]
     ) -> np.ndarray:
-        """基于LLM分析更新任务-能力需求矩阵T（增强版）。"""
+        """based onLLMAnalyze and update tasks-capability requirements matrixT(enhanced version)."""
         base_T = self.BASE_TASK_CAPABILITY_REQUIREMENTS.copy()
         
         complexity = llm_analysis.get("task_complexity", {})
@@ -236,7 +236,7 @@ class MatrixUpdater:
         structured_subtasks: List[Dict[str, Any]],
         llm_analysis: Dict[str, Any]
     ) -> np.ndarray:
-        """基于LLM分析更新机器人-能力矩阵A（增强版）。"""
+        """based onLLMAnalysis Update Robot-capability matrixA(enhanced version)."""
         base_A = self.BASE_ROBOT_CAPABILITIES.copy()
         
         agent_suitability = llm_analysis.get("agent_suitability", {})
@@ -271,7 +271,7 @@ class MatrixUpdater:
         structured_subtasks: List[Dict[str, Any]],
         llm_analysis: Dict[str, Any]
     ) -> List[np.ndarray]:
-        """基于LLM分析更新能力权重ws（增强版）。"""
+        """based onLLMAnalyze update capability weightsws(enhanced version)."""
         base_weights = [w.copy() for w in self.BASE_CAPABILITY_WEIGHTS]
         task_type_counts = {}
         for subtask in structured_subtasks:
@@ -297,7 +297,7 @@ class MatrixUpdater:
         structured_subtasks: List[Dict[str, Any]],
         world_state: Dict[str, Any]
     ) -> Dict[str, Union[np.ndarray, List[np.ndarray]]]:
-        """简化的fallback矩阵更新方法"""
+        """simplifiedfallbackMatrix update method"""
         print(f"DEBUG: Using fallback method to update MIQP matrices.")
         updated_T = self._update_task_capability_matrix(world_state, structured_subtasks)
         updated_A = self._update_robot_capability_matrix(world_state, structured_subtasks)
@@ -310,7 +310,7 @@ class MatrixUpdater:
         world_state: Dict[str, Any], 
         structured_subtasks: List[Dict[str, Any]], 
     ) -> np.ndarray:
-        """基于世界状态更新任务-能力需求矩阵T。"""
+        """Update task-capability requirement matrix based on world stateT。"""
         try:
             base_T = self.BASE_TASK_CAPABILITY_REQUIREMENTS.copy()
             if not structured_subtasks:
@@ -337,7 +337,7 @@ class MatrixUpdater:
             return base_T
             
         except Exception as e:
-            print(f"[ERROR] 任务能力需求矩阵更新失败: {e}")
+            print(f"[ERROR]Mission capability requirements matrix update failed: {e}")
             return self.BASE_TASK_CAPABILITY_REQUIREMENTS.copy()
 
     def _update_robot_capability_matrix(
@@ -345,7 +345,7 @@ class MatrixUpdater:
         world_state: Dict[str, Any], 
         structured_subtasks: List[Dict[str, Any]],
     ) -> np.ndarray:
-        """基于世界状态更新机器人能力矩阵A（简化版）。"""
+        """Update bot based on world statecapability matrixA(simplified version)."""
         try:
             base_A = self.BASE_ROBOT_CAPABILITIES.copy()
             updated_A = base_A.copy()
@@ -359,7 +359,7 @@ class MatrixUpdater:
             return updated_A
             
         except Exception as e:
-            print(f"[ERROR] 机器人能力矩阵更新失败: {e}")
+            print(f"[ERROR]robotcapability matrixUpdate failed: {e}")
             return self.BASE_ROBOT_CAPABILITIES.copy()
 
     def _update_capability_weights(
@@ -367,7 +367,7 @@ class MatrixUpdater:
         world_state: Dict[str, Any], 
         structured_subtasks: List[Dict[str, Any]],
     ) -> List[np.ndarray]:
-        """基于世界状态更新能力权重ws。"""
+        """Update ability weights based on world statews。"""
         try:
             base_weights = [w.copy() for w in self.BASE_CAPABILITY_WEIGHTS]
             
@@ -383,7 +383,7 @@ class MatrixUpdater:
             return base_weights
             
         except Exception as e:
-            print(f"[ERROR] 能力权重更新失败: {e}")
+            print(f"[ERROR]Ability weight update failed: {e}")
             return [w.copy() for w in self.BASE_CAPABILITY_WEIGHTS]
 
     def _get_default_analysis(self) -> Dict[str, Any]:

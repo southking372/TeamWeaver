@@ -39,39 +39,39 @@ import numpy as np
 
 class HRCS_LLMPlanner(LLMPlanner):
     """
-    HRCS增强版的LLMPlanner，集成MIQP优化和阶段性任务执行
-    继承自LLMPlanner，专门处理复杂的多智能体协作规划任务
+    HRCS-enhanced LLMPlanner with MIQP optimization and phased task execution
+    Extends LLMPlanner for complex multi-agent collaborative planning
     """
 
     def __init__(
         self, plan_config: "DictConfig", env_interface: "EnvironmentInterface"
     ):
         """
-        初始化HRCS_LLMPlanner。
+        Initialize HRCS_LLMPlanner.
 
-        :param plan_config: 规划器配置
-        :param env_interface: 环境接口
+        :param plan_config: planner config
+        :param env_interface: environment interface
         """
-        # 调用父类初始化
+        # call parent __init__
         super().__init__(plan_config, env_interface)
 
-        # MIQP特有的组件
+        # MIQP-specific components
         self.scenario_params = None
         self.opt_params = None
         self.miqp_globalvars = None
         self.rta = None
         self.perception_connector = PerceptionConnector()
 
-        # 阶段转换标志
+        # phase transition flag
         self._phase_transition_pending: bool = False
         
-        # 存储最后响应信息
+        # store last response info
         self._last_response_info: Dict[str, Any] = {}
 
     def reset(self):
         super().reset() 
         
-        # 重置HRCS特有的状态
+        # reset HRCS-specific state
         self._phase_transition_pending = False
         self._last_response_info = {}
         
@@ -96,7 +96,7 @@ class HRCS_LLMPlanner(LLMPlanner):
             try:
                 position = agent.get_property("translation")
                 # rotation_quat = agent.get_property("rotation")
-                # 目前rotation_quat对于agent无法获取，应采用其他方式获取
+                # rotation_quat cannot be obtained for agents yet; use another method
             except (ValueError, AttributeError) as e:
                 print(f"Warning: Could not get pose properties for agent {agent_name}. Using default pose. Error: {str(e)}")
             agent_poses[agent_name] = {'position': position, 'rotation': rotation_quat}
@@ -300,13 +300,13 @@ class HRCS_LLMPlanner(LLMPlanner):
         world_graph: Dict[int, "WorldGraph"],
     ) -> str:
         """
-        重新规划：集成任务分解、MIQP优化和序列化执行、支持阶段性任务执行和动态T矩阵生成
+        Replan: task decomposition, MIQP optimization, sequenced execution, phased tasks, dynamic T matrix
         
         Returns:
-            llm_response: LLM生成的响应字符串
+            llm_response: LLM-generated responsestring
         """
         print("\n" + "="*80)
-        print("🚀 开始 MIQP Enhanced Plan")
+        print("🚀 Starting MIQP Enhanced Plan")
         print("="*80)
         
         t = 0.0
@@ -366,7 +366,7 @@ class HRCS_LLMPlanner(LLMPlanner):
                 "max_tokens": 1200,
             }
             
-            # 检查是否是首次分解，还是只需要获取当前阶段
+            # Check if first decomposition or only need current phase
             if not self.perception_connector.phase_manager.task_execution_phases:
                 try:
                     structured_subtasks, execution_phases = self.perception_connector.structured_decompose_task_with_sequencing(
@@ -383,7 +383,7 @@ class HRCS_LLMPlanner(LLMPlanner):
                     print(f"[WARNING] Structured decomposition failed: {decompose_error}, using fallback")
                     raise decompose_error
             else:
-                # 继续执行：检查当前阶段状态
+                # Continue: check current phase status
                 current_phase = self.perception_connector.get_current_phase_tasks()
                 if current_phase:
                     print(f"[DEBUG] Continuing execution: Phase {self.perception_connector.phase_manager.current_phase_index + 1}/{len(self.perception_connector.phase_manager.task_execution_phases)}")
@@ -418,7 +418,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         print(f"[Step 7/15] Building phase-specific T matrix...")
         try:
             if self.scenario_params is not None:
-                # 构建当前阶段的动态维度T矩阵
+                # Build dynamic-dimension T matrix for current phase
                 phase_t_matrix, active_task_indices, active_task_types = self.perception_connector.build_phase_specific_t_matrix(
                     current_phase,
                     self.perception_connector.BASE_TASK_CAPABILITY_REQUIREMENTS
@@ -444,10 +444,10 @@ class HRCS_LLMPlanner(LLMPlanner):
         except Exception as e:
             print(f"[ERROR] Phase-specific T matrix building failed: {e}")
             fallback_matrix = np.zeros_like(self.perception_connector.BASE_TASK_CAPABILITY_REQUIREMENTS)
-            fallback_matrix[12, :] = self.perception_connector.BASE_TASK_CAPABILITY_REQUIREMENTS[12, :]  # 只激活Wait
+            fallback_matrix[12, :] = self.perception_connector.BASE_TASK_CAPABILITY_REQUIREMENTS[12, :]  # activate Wait only
             phase_task_info = {
                 'matrix': fallback_matrix,
-                'indices': [12],  # Wait任务索引
+                'indices': [12],  # Wait task index
                 'types': ['Wait'],
                 'n_phase_tasks': 1,
                 'n_total_tasks': 13
@@ -533,7 +533,7 @@ class HRCS_LLMPlanner(LLMPlanner):
                 current_phase
             )
             
-            # 如果有恢复任务被添加，更新分配
+            # If recovery tasks added, update assignment
             if recovered_assignments != agent_task_assignments:
                 agent_task_assignments = recovered_assignments
                 print(f"[DEBUG] **RECOVERY** Updated task assignments after error recovery:")
@@ -611,7 +611,7 @@ class HRCS_LLMPlanner(LLMPlanner):
             print(f"[ERROR] LLM action generation failed: {e}")
             llm_response = "Agent_0_Action: Wait[]\nAgent_1_Action: Wait[]\nAssigned!"
 
-        # 添加调试输出，显示使用的prompt长度信息
+        # Debug output: prompt length info
         print(f"[DEBUG] **FEEDBACK_ENHANCED** Prompt components:")
         print(f"  - curr_prompt length: {len(self.curr_prompt)} chars")
         if miqp_guidance:
@@ -624,7 +624,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         try:
             high_level_actions = self._parse_high_level_actions(llm_response)
             
-            # 根据当前阶段调整动作
+            # Adjust actions for current phase
             adjusted_actions = self._adjust_actions_with_phase_awareness(
                 high_level_actions, 
                 agent_task_assignments,
@@ -678,7 +678,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         print(f"  Error Recovery: Applied")
         print("="*80)
         
-        # 返回LLM响应
+        # Return LLM response
         return llm_response
 
     def get_next_action(
@@ -840,7 +840,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         return low_level_actions, planner_info, self.is_done
 
     # ============================================================================
-    # MIQP相关的方法
+    # MIQP-related methods
     # ============================================================================
 
     def _build_miqp_guidance_addition(
@@ -852,13 +852,13 @@ class HRCS_LLMPlanner(LLMPlanner):
         world_state: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        构建MIQP指导信息的增量部分，用于添加到现有的curr_prompt中。
-        这确保保留了完整的对话历史和反馈，同时添加MIQP优化指导。
-        格式化为更适合LLM理解的简洁指导。
+        Build incremental MIQP guidance to append to curr_prompt.
+        Preserves full conversation history and feedback while adding MIQP guidance.
+        Format as concise guidance for the LLM.
         """
         guidance_info = "Based on MIQP optimization analysis:\n\n"
         
-        # 添加阶段信息（简化）
+        # Add phase info (simplified)
         try:
             phase_id = current_phase['phase_id']
             total_phases = len(self.perception_connector.phase_manager.task_execution_phases)
@@ -866,7 +866,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         except (KeyError, AttributeError):
             guidance_info += f"Current Phase - Focus on the following assignments:\n"
         
-        # 添加任务分配信息（核心内容）
+        # Add task assignment info (core content)
         if agent_task_assignments:
             for agent_id, tasks in agent_task_assignments.items():
                 if tasks:
@@ -897,7 +897,7 @@ class HRCS_LLMPlanner(LLMPlanner):
             else:
                 guidance_info += "Objects: None found yet.\n"
 
-        # 添加简化的执行提示
+        # Add simplified execution hints
         guidance_info += f"\nRemember to explore if objects are not found yet, and coordinate to avoid conflicts."
         
         return guidance_info
@@ -913,21 +913,21 @@ class HRCS_LLMPlanner(LLMPlanner):
         world_state: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        **DEPRECATED** 构建包含阶段感知和MIQP优化指导的增强型prompt。
-        现在使用_build_miqp_guidance_addition + curr_prompt的方式。
+        **DEPRECATED** Build enhanced prompt with phase awareness and MIQP guidance.
+        Now uses _build_miqp_guidance_addition + curr_prompt.
         """
-        # 获取基础prompt
+        # Get base prompt
         base_prompt, _ = self.prepare_prompt(
             instruction, 
             self.env_interface.world_graph[self._agents[0].uid]
         )
         
-        # 获取MIQP指导信息
+        # Get MIQP guidance info
         guidance_info = self._build_miqp_guidance_addition(
             current_phase_tasks, agent_task_assignments, current_phase, alpha_result, world_state
         )
         
-        # 组合完整prompt
+        # Combine full prompt
         enhanced_prompt = base_prompt + guidance_info
         return enhanced_prompt
 
@@ -938,7 +938,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         current_phase: Dict[str, Any]
     ) -> Dict[int, Tuple[str, str, Optional[str]]]:
         """
-        根据当前阶段和任务分配调整动作，确保符合阶段约束。
+        Adjust actions for current phase and assignment; enforce phase constraints.
         """
         adjusted_actions = {}
         
@@ -976,7 +976,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         return adjusted_actions
 
     def _reshape_alpha_to_phase_tasks(self, alpha, n_agents, n_phase_tasks, phase_task_info):
-        """阶段感知的alpha重塑方法"""
+        """Phase-aware alpha reshaping"""
         if alpha is None:
             return np.zeros((n_agents, n_phase_tasks))
         
@@ -989,67 +989,67 @@ class HRCS_LLMPlanner(LLMPlanner):
             print(f"  Target shape: ({n_agents}, {n_phase_tasks})")
             print(f"  Phase task types: {phase_task_info['types'] if phase_task_info else 'unknown'}")
             
-            # 如果alpha是一维数组
+            # If alpha is 1D array
             if alpha_array.ndim == 1:
                 expected_size = n_agents * n_phase_tasks
                 if alpha_array.size == expected_size:
                     return alpha_array.reshape(n_agents, n_phase_tasks)
                 else:
                     print(f"Warning: Alpha size {alpha_array.size} doesn't match expected {expected_size}")
-                    # 如果长度不匹配，截取或填充
+                    # If length mismatch, truncate or pad
                     if alpha_array.size > expected_size:
-                        # 截取前n个元素
+                        # take first n elements
                         truncated = alpha_array[:expected_size]
                         return truncated.reshape(n_agents, n_phase_tasks)
                     else:
-                        # 填充到所需长度
+                        # pad to required length
                         padded = np.zeros(expected_size)
                         padded[:alpha_array.size] = alpha_array
                         return padded.reshape(n_agents, n_phase_tasks)
             
-            # 如果已经是2D数组
+            # If already 2D array
             elif alpha_array.ndim == 2:
                 if alpha_array.shape == (n_agents, n_phase_tasks):
                     return alpha_array
                 else:
-                    # **CRITICAL**: 处理从13个全局任务到阶段任务的映射
+                    # **CRITICAL**: Map from 13 global tasks to phase tasks
                     print(f"Warning: Alpha shape {alpha_array.shape} doesn't match expected ({n_agents}, {n_phase_tasks})")
                     
-                    # 如果原alpha是全局任务矩阵(n_agents, 13)，需要提取阶段任务列
+                    # If alpha is global (n_agents, 13), extract phase task columns
                     if (alpha_array.shape[0] == n_agents and 
                         alpha_array.shape[1] == 13 and 
                         phase_task_info and 'indices' in phase_task_info):
                         
-                        # 从全局矩阵中提取阶段任务的列
+                        # Extract phase task columns from global matrix
                         active_indices = phase_task_info['indices']
                         if len(active_indices) == n_phase_tasks:
-                            # 确保所有索引都在有效范围内
+                            # Ensure all indices are in valid range
                             valid_indices = [i for i in active_indices if 0 <= i < 13]
                             if len(valid_indices) == n_phase_tasks:
                                 result = alpha_array[:, valid_indices]
                                 print(f"[DEBUG] **FIXED** Extracted phase tasks from global matrix using indices {valid_indices}")
                                 return result
                     
-                    # 如果智能体数量匹配但任务数量不同
+                    # If agent count matches but task count differs
                     if alpha_array.shape[0] == n_agents:
                         current_n_tasks = alpha_array.shape[1]
                         if current_n_tasks > n_phase_tasks:
-                            # 截取前n_phase_tasks列
+                            # take first n_phase_tasks columns
                             return alpha_array[:, :n_phase_tasks]
                         else:
-                            # 填充更多列
+                            # pad additional columns
                             result = np.zeros((n_agents, n_phase_tasks))
                             result[:, :current_n_tasks] = alpha_array
                             return result
                     else:
-                        # 创建新矩阵并复制可能的值
+                        # Create new matrix and copy available values
                         result = np.zeros((n_agents, n_phase_tasks))
                         copy_agents = min(alpha_array.shape[0], n_agents)
                         copy_tasks = min(alpha_array.shape[1], n_phase_tasks)
                         result[:copy_agents, :copy_tasks] = alpha_array[:copy_agents, :copy_tasks]
                         return result
             
-            # 其他情况，返回默认矩阵
+            # Otherwise return default matrix
             else:
                 print(f"Warning: Unexpected alpha dimensions {alpha_array.ndim}, using fallback")
                 return np.zeros((n_agents, n_phase_tasks))
@@ -1065,7 +1065,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         }
 
     def _validate_miqp_solution(self, alpha, agent_capabilities: Dict[int, List[str]]) -> bool:
-        """验证MIQP解决方案"""
+        """Validate MIQP solution"""
         if alpha is None:
             return False
         
@@ -1077,7 +1077,7 @@ class HRCS_LLMPlanner(LLMPlanner):
             return alpha != 0
 
     def _heuristic_task_assignment(self, tasks: List[Dict[str, Any]]) -> Dict[int, List[Dict[str, Any]]]:
-        """阶段感知的启发式任务分配，特别处理单任务阶段"""
+        """Phase-aware heuristic assignment; special handling for single-task phases"""
         assignments = {i: [] for i in range(len(self._agents))}
         
         if not tasks:
@@ -1086,10 +1086,10 @@ class HRCS_LLMPlanner(LLMPlanner):
         
         print(f"[DEBUG] Assigning {len(tasks)} phase tasks to {len(self._agents)} agents")
         
-        # 基于智能体能力进行智能分配
+        # Smart assignment based on agent capabilities
         agent_capabilities = self._get_agent_capabilities()
         
-        # 特殊处理单任务阶段
+        # Special handling for single-task phase
         if len(tasks) == 1:
             task = tasks[0]
             task_type = task.get('task_type', 'Wait')
@@ -1100,13 +1100,13 @@ class HRCS_LLMPlanner(LLMPlanner):
                 if task_type in capabilities:
                     capable_agents.append(agent_id)
             
-            # 选择能力值最高的智能体（能力值为capabilities列表长度），如有多个则取第一个，否则为0
+            # Pick agent with highest capability score; if tie take first, else 0
             if capable_agents:
                 chosen_agent = max(capable_agents, key=lambda aid: len(agent_capabilities[aid]))
             else:
                 chosen_agent = 0
             
-            # 添加分配信息到任务中
+            # Add assignment info to task
             assigned_task = task.copy()
             assigned_task.update({
                 'assigned_agent': chosen_agent,
@@ -1118,28 +1118,28 @@ class HRCS_LLMPlanner(LLMPlanner):
             print(f"[DEBUG] **HEURISTIC** Single task assignment: {task_type}({target}) → Agent {chosen_agent}")
             print(f"[DEBUG] **HEURISTIC** Agent {chosen_agent} capabilities: {agent_capabilities.get(chosen_agent, [])}")
             
-            # 其他智能体设置为空（会在action生成时处理Wait）
+            # Other agents left empty (Wait handled during action generation)
             for agent_id in range(len(self._agents)):
                 if agent_id != chosen_agent:
                     print(f"[DEBUG] **HEURISTIC** Agent {agent_id} will wait (no task assigned)")
         
         else:
-            # 多任务阶段，使用原来的分配逻辑
+            # Multi-task phase: use original assignment logic
             for task in tasks:
                 task_type = task.get('task_type', 'Wait')
                 target = task.get('target', '')
                 
-                # 找到能执行此任务的智能体
+                # Find agents capable of this task
                 capable_agents = []
                 for agent_id, capabilities in agent_capabilities.items():
                     if task_type in capabilities:
                         capable_agents.append(agent_id)
                 
                 if capable_agents:
-                    # 选择负载最轻的智能体
+                    # Pick least-loaded agent
                     chosen_agent = min(capable_agents, key=lambda aid: len(assignments[aid]))
                     
-                    # 添加分配信息到任务中
+                    # Add assignment info to task
                     assigned_task = task.copy()
                     assigned_task.update({
                         'assigned_agent': chosen_agent,
@@ -1150,7 +1150,7 @@ class HRCS_LLMPlanner(LLMPlanner):
                     assignments[chosen_agent].append(assigned_task)
                     print(f"[DEBUG] **HEURISTIC** Multi-task assignment: {task_type}({target}) → Agent {chosen_agent}")
                 else:
-                    # 如果没有智能体能执行，分配给第一个智能体
+                    # If no capable agent, assign to first agent
                     assigned_task = task.copy()
                     assigned_task.update({
                         'assigned_agent': 0,
@@ -1161,7 +1161,7 @@ class HRCS_LLMPlanner(LLMPlanner):
                     assignments[0].append(assigned_task)
                     print(f"[DEBUG] **HEURISTIC** Fallback assignment: {task_type}({target}) → Agent 0 (no capable agent found)")
         
-        # 显示最终分配结果
+        # Show final assignment result
         for agent_id, agent_tasks in assignments.items():
             if agent_tasks:
                 task_summaries = [f"{t['task_type']}→{t.get('target', '')}" for t in agent_tasks]
@@ -1172,7 +1172,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         return assignments
 
     def _generate_action_from_subtask(self, subtask: Dict[str, Any]) -> Optional[Tuple[str, str, Optional[str]]]:
-        """从子任务生成动作"""
+        """Generate actions from subtasks"""
         task_type = subtask.get('task_type', '')
         target = subtask.get('target', '')
         
@@ -1187,7 +1187,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         )
 
     def _create_fallback_tasks(self, instruction: str) -> List[Dict[str, Any]]:
-        """创建更稳健的、分阶段的后備任務計劃。"""
+        """Create robust phased fallback task plan."""
         
         # Phase 1: Explore
         explore_phase = {
@@ -1233,7 +1233,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         return [explore_phase, wait_phase]
 
     def task_plan_MIQP_set(self):
-        """设置MIQP参数"""
+        """Set MIQP parameters"""
         from habitat_llm.planner.HRCS.params_module.scenario_params_task import ScenarioConfigTask
         from habitat_llm.planner.HRCS.params_module.opt_params_task import OptimizationConfigTask
         from habitat_llm.planner.HRCS.class_def.RTA_task import RTA
@@ -1255,7 +1255,7 @@ class HRCS_LLMPlanner(LLMPlanner):
 
     def task_plan_MIQP_solve_phase_aware(self, x, t, phase_task_info):
         """
-        阶段感知的MIQP求解器：使用固定13×5的T矩阵维度
+        Phase-aware MIQP solver: fixed 13×5 T matrix dimensions
         """
         try:
             start_time = time.time()
@@ -1300,13 +1300,13 @@ class HRCS_LLMPlanner(LLMPlanner):
             
             solve_time = time.time() - start_time
             
-            # 验证返回值具有正确的固定维度
+            # Validate return has correct fixed dimensions
             if alpha is not None:
                 alpha = np.array(alpha)
-                expected_shape = (n_agents, n_total_tasks)  # 固定13任务维度
+                expected_shape = (n_agents, n_total_tasks)  # fixed 13-task dimensions
                 
                 if alpha.ndim == 1:
-                    # 如果返回的是1D数组，重塑为期望形状
+                    # If 1D array returned, reshape to expected shape
                     expected_size = n_agents * n_total_tasks
                     if alpha.size == expected_size:
                         alpha = alpha.reshape(expected_shape)
@@ -1315,7 +1315,7 @@ class HRCS_LLMPlanner(LLMPlanner):
                         alpha = np.ones(expected_shape) * 0.5
                 elif alpha.shape != expected_shape:
                     print(f"[WARNING] Alpha shape {alpha.shape} doesn't match expected {expected_shape}")
-                    # 使用启发式方法重建alpha
+                    # Rebuild alpha heuristically
                     alpha = self._rebuild_alpha_for_fixed_dimensions(alpha, n_agents, n_total_tasks, phase_task_info)
                 
                 print(f"[DEBUG] **FIXED** Phase-aware MIQP solved successfully in {solve_time:.4f}s")
@@ -1329,7 +1329,7 @@ class HRCS_LLMPlanner(LLMPlanner):
         except Exception as e:
             solve_time = time.time() - start_time if 'start_time' in locals() else 0.0
             print(f"[ERROR] Phase-aware MIQP solve exception: {e}")
-            # 返回固定维度的fallback解决方案
+            # Return fixed-dimension fallback solution
             n_agents = len(self._agents) if hasattr(self, '_agents') else 2
             n_total_tasks = phase_task_info.get('n_total_tasks', 13) if phase_task_info else 13
             alpha = np.ones((n_agents, n_total_tasks)) * 0.5
@@ -1338,7 +1338,7 @@ class HRCS_LLMPlanner(LLMPlanner):
             return alpha, u, delta, solve_time, f"EXCEPTION_FALLBACK: {str(e)}"
 
     def _rebuild_alpha_for_fixed_dimensions(self, original_alpha, n_agents, n_total_tasks, phase_task_info):
-        """重建alpha矩阵以适应固定的13×5维度"""
+        """Rebuild alpha matrix for fixed 13×5 dimensions"""
         try:
             fixed_alpha = np.zeros((n_agents, n_total_tasks))
             active_indices = phase_task_info.get('indices', [])
@@ -1367,7 +1367,7 @@ class HRCS_LLMPlanner(LLMPlanner):
             
         except Exception as e:
             print(f"[ERROR] Failed to rebuild alpha: {e}")
-            # 最终fallback
+            # final fallback
             fallback_alpha = np.zeros((n_agents, n_total_tasks))
             active_indices = phase_task_info.get('indices', [12]) 
             for task_idx in active_indices:
@@ -1376,7 +1376,7 @@ class HRCS_LLMPlanner(LLMPlanner):
             return fallback_alpha
 
     def _create_phase_scenario_params(self, phase_task_info):
-        """创建阶段特定的scenario参数"""
+        """Create phase-specific scenario params"""
         try:
             phase_params = self.scenario_params.scenario_params.copy()
             phase_params['T'] = phase_task_info['matrix']
@@ -1394,11 +1394,11 @@ class HRCS_LLMPlanner(LLMPlanner):
             return self.scenario_params.scenario_params if self.scenario_params else {}
 
     def _heuristic_phase_solve(self, x, t, phase_task_info):
-        """启发式阶段求解方案，使用固定13×5维度"""
+        """Heuristic phase solution with fixed 13×5 dimensions"""
         start_time = time.time()
         
         n_agents = len(self._agents)
-        n_total_tasks = phase_task_info.get('n_total_tasks', 13)  # 固定维度
+        n_total_tasks = phase_task_info.get('n_total_tasks', 13)  # fixed dimensions
         n_phase_tasks = phase_task_info['n_phase_tasks']
         task_types = phase_task_info['types']
         active_indices = phase_task_info.get('indices', [])
@@ -1506,10 +1506,10 @@ class HRCS_LLMPlanner(LLMPlanner):
 
     def _parse_high_level_actions(self, llm_response: str) -> Dict[int, Tuple[str, str, Optional[str]]]:
         """
-        解析LLM响应中的高级动作
+        Parse high-level actions from LLM response
 
-        :param llm_response: LLM生成的响应
-        :return: 解析出的高级动作字典
+        :param llm_response: LLM-generated response
+        :return: parsed high-level action dict
         """
         try:
             if not hasattr(self, 'params') or self.params is None:
@@ -1517,14 +1517,14 @@ class HRCS_LLMPlanner(LLMPlanner):
             
             return self.actions_parser(self.agents, llm_response, self.params)
         except Exception as e:
-            print(f"[ERROR] 高级动作解析失败: {e}")
+            print(f"[ERROR] High-level action parsing failed: {e}")
             return {
                 agent.uid: ("Explore", "environment", None) 
                 for agent in self.agents
             }
             
     def _extract_phase_alpha_from_full_matrix(self, full_alpha, n_agents, active_indices, n_current_tasks):
-        """从固定13×5的alpha矩阵中提取当前阶段的任务分配"""
+        """Extract current-phase task assignment from fixed 13×5 alpha matrix"""
         try:
             if not hasattr(full_alpha, 'shape'):
                 full_alpha = np.array(full_alpha)
@@ -1540,7 +1540,7 @@ class HRCS_LLMPlanner(LLMPlanner):
                 print(f"[WARNING] Alpha agent dimension mismatch: {full_alpha.shape[0]} vs {n_agents}")
                 return None
             
-            # 提取活跃任务列
+            # Extract active task columns
             if len(active_indices) == n_current_tasks and all(0 <= idx < full_alpha.shape[1] for idx in active_indices):
                 phase_alpha = full_alpha[:, active_indices]
                 print(f"[DEBUG] Extracted phase alpha {phase_alpha.shape} from full matrix {full_alpha.shape}")

@@ -16,28 +16,28 @@ from habitat_llm.planner.HRCS.class_def.RTA_task_analyzer import RTA_task_analyz
 class RTA:
     def __init__(self, scenario_params, opt_params, task_priority_config=None):
         """
-        初始化RTA类
+initializationRTAkind
         """
-        assert all(field in scenario_params for field in ['A', 'Hs', 'T', 'ws', 'robot_dyn', 'tasks']), '缺少场景参数'
-        assert all(field in opt_params for field in ['l', 'kappa', 'gamma', 'n_r_bounds', 'delta_max']), '缺少优化参数'
+        assert all(field in scenario_params for field in ['A', 'Hs', 'T', 'ws', 'robot_dyn', 'tasks']),'Missing scene parameter'
+        assert all(field in opt_params for field in ['l', 'kappa', 'gamma', 'n_r_bounds', 'delta_max']),'Missing optimization parameters'
         
         self.scenario_params_ = scenario_params
         self.opt_params_ = opt_params
         
-        # 维度信息
+        #Dimension information
         self.dim_ = {}
-        self.dim_['n_r'] = scenario_params['A'].shape[1]  # 机器人数量
-        self.dim_['n_t'] = scenario_params['T'].shape[0]  # 任务数量
-        self.dim_['n_c'] = scenario_params['T'].shape[1]  # 能力数量
-        self.dim_['n_f'] = scenario_params['A'].shape[0]  # 特征数量
-        self.dim_['n_x'] = scenario_params['robot_dyn']['n_x']  # 状态维度
-        self.dim_['n_u'] = scenario_params['robot_dyn']['n_u']  # 输入维度
+        self.dim_['n_r'] = scenario_params['A'].shape[1]  # number of robots
+        self.dim_['n_t'] = scenario_params['T'].shape[0]  #Number of tasks
+        self.dim_['n_c'] = scenario_params['T'].shape[1]  #Ability quantity
+        self.dim_['n_f'] = scenario_params['A'].shape[0]  #Number of features
+        self.dim_['n_x'] = scenario_params['robot_dyn']['n_x']  #status dimension
+        self.dim_['n_u'] = scenario_params['robot_dyn']['n_u']  #input dimensions
         
-        # 计算映射和专业化
+        #Computational mapping and specialization
         self.evaluate_mappings_and_specializations()
         self.check_tasks()
         
-        # 初始化约束字典
+        #Initialize constraint dictionary
         self.constraints_ = {}
         self.global_vars_manager_ = None
         self.task_utility_normalizer_ = TaskUtilityNormalizer(
@@ -62,7 +62,7 @@ class RTA:
         # print("[DEBUG] RTA reset completed")
     
     def get_global_vars_manager(self):
-        """获取全局变量管理器"""
+        """Get global variable manager"""
         if self.global_vars_manager_ is not None:
             return self.global_vars_manager_
             
@@ -88,14 +88,14 @@ class RTA:
         return self.task_utility_normalizer_.calculate_scaling_factors(x, t, global_vars_dict, llm_response)
         
     def solve_miqp(self, x, t):
-        """使用CVXPY/Gurobi解决MIQP优化问题"""
+        """useCVXPY/GurobisolveMIQPoptimization problem"""
         
-        # 如果开启调试模式，使用详细分析版本
+        #If debug mode is enabled, use the detailed analysis version
         if True:
             alpha, u, delta, solve_time, status, constraints_info = self.analyzer.solve_miqp_with_detailed_analysis(x, t)
             return alpha, u, delta, solve_time, status
         
-        # 标准版本
+        #Standard version
         self.build_constraints(x, t)
         
         alpha_dim = self.dim_['n_r'] * self.dim_['n_t']
@@ -119,22 +119,22 @@ class RTA:
             constraints = []
             all_vars_h = cp.hstack([alpha_var, u_var, delta_var])
             all_vars = all_vars_h.T
-            constraints.append(self.constraints_['A_ineq'] @ all_vars <= self.constraints_['b_ineq']) # 添加线性不等式约束
-            constraints.append(self.constraints_['A_eq'] @ all_vars == self.constraints_['b_eq']) # 添加等式约束
-            constraints.append(alpha_var >= self.constraints_['lb'][:alpha_dim]) # 添加变量边界约束
+            constraints.append(self.constraints_['A_ineq'] @ all_vars <= self.constraints_['b_ineq']) #Add linear inequality constraints
+            constraints.append(self.constraints_['A_eq'] @ all_vars == self.constraints_['b_eq']) #Add equality constraints
+            constraints.append(alpha_var >= self.constraints_['lb'][:alpha_dim]) #Add variable boundary constraints
             constraints.append(alpha_var <= self.constraints_['ub'][:alpha_dim])
             
             lb_idx = alpha_dim + u_dim
             constraints.append(delta_var >= self.constraints_['lb'][lb_idx:lb_idx+delta_dim])
             constraints.append(delta_var <= self.constraints_['ub'][lb_idx:lb_idx+delta_dim])
             
-            # 使用更宽松的求解参数以提高数值稳定性
+            #Use more relaxed solution parameters to improve numerical stability
             solve_params = {
-                'NumericFocus': 2,  # 降低数值精度要求
-                'FeasibilityTol': 1e-6,  # 放宽可行性容差
-                'OptimalityTol': 1e-6,   # 放宽最优性容差
-                'IntFeasTol': 1e-6,      # 放宽整数可行性容差
-                'MIPGap': 1e-4          # 允许一定的MIP gap
+                'NumericFocus': 2,  #Reduce numerical accuracy requirements
+                'FeasibilityTol': 1e-6,  #Relax feasibility tolerance
+                'OptimalityTol': 1e-6,   #Relax optimality tolerance
+                'IntFeasTol': 1e-6,      #Relax integer feasibility tolerance
+                'MIPGap': 1e-4          #allow certainMIP gap
             }
             problem = cp.Problem(objective, constraints)
             
@@ -158,21 +158,21 @@ class RTA:
                 delta = delta_var.value
                 opt_sol_info = "Optimal"
             elif problem.status == cp.INFEASIBLE or problem.status == "infeasible":
-                print(f"[ERROR] 优化问题不可行！检查约束条件...")
+                print(f"[ERROR]The optimization problem is not feasible! Check constraints...")
                 self.analyzer._diagnose_infeasible_constraints()
                 alpha = np.zeros(alpha_dim)
                 u = np.zeros(u_dim)
                 delta = np.zeros(delta_dim)
                 opt_sol_info = f"Infeasible: {problem.status}"
             elif problem.status == cp.UNBOUNDED or problem.status == "unbounded":
-                print(f"[ERROR] 优化问题无界！检查目标函数...")
+                print(f"[ERROR]Optimization problems are unbounded! Check the objective function...")
                 alpha = np.zeros(alpha_dim)
                 u = np.zeros(u_dim)
                 delta = np.zeros(delta_dim)
                 opt_sol_info = f"Unbounded: {problem.status}"
             else:
-                print(f"优化未收敛，状态: {problem.status}")
-                print(f"[DEBUG] 开始诊断约束条件...")
+                print(f"Optimization has not converged, status: {problem.status}")
+                print(f"[DEBUG]Start diagnosing constraints...")
                 self.analyzer._diagnose_infeasible_constraints()
                 alpha = np.zeros(alpha_dim)
                 u = np.zeros(u_dim)
@@ -184,11 +184,11 @@ class RTA:
             return alpha, u, delta, time_to_solve_miqp, opt_sol_info
             
         except cp.error.SolverError as e:
-            print(f"CVXPY求解器错误: {e}")
+            print(f"CVXPYSolver error: {e}")
             return np.zeros(alpha_dim), np.zeros(u_dim), np.zeros(delta_dim), 0, "Error"
         
     def solve_reduced_qp(self, x, alpha, t):
-        """求解固定alpha下的简化QP问题"""
+        """Solution fixedalphaSimplification belowQPquestion"""
         self.build_reduced_constraints(x, t)
         
         alpha_dim = self.dim_['n_r'] * self.dim_['n_t']
@@ -250,7 +250,7 @@ class RTA:
     
     def get_scaled_task_values(self, x, i, j, **kwargs):
         """
-        获取缩放后的任务函数值、梯度和时间导数。
+Get scaled task function values, gradients, and time derivatives.
         """
         task_types_in_phase = kwargs.get('task_types_in_phase')
 
@@ -271,22 +271,22 @@ class RTA:
         
         task = self.scenario_params_['tasks'][task_type_index]
         
-        # 从 kwargs 获取可选参数，提供默认值
+        #fromkwargsGet optional parameters, providing default values
         t = kwargs.get('t', 0.0)
         global_vars_dict = kwargs.get('global_vars_dict', self.get_global_vars_dict())
         scaling_factors = kwargs.get('scaling_factors', None)
 
-        # 准备传递给任务函数的参数
+        #Prepare the parameters passed to the task function
         task_kwargs = {}
         if global_vars_dict is not None:
             task_kwargs['vars_dict'] = global_vars_dict
 
-        # 调用底层任务函数
+        #Call the underlying task function
         task_func_value = task['function'](x[:, i], t, i, **task_kwargs)
         task_grad_value = task['gradient'](x[:, i], t, i, **task_kwargs)
         task_time_deriv_value = task['time_derivative'](x[:, i], t, i, **task_kwargs)
         
-        # 如果提供了缩放因子，则应用缩放 (当前逻辑为注释状态)
+        #If scaling factor is provided, scaling is applied(The current logic is in comment state)
         if scaling_factors is not None and j < len(scaling_factors):
             task_func_value *= scaling_factors[j]
             task_grad_value *= scaling_factors[j]
@@ -296,7 +296,7 @@ class RTA:
         return task_func_value, task_grad_value, task_time_deriv_value
         
     def build_constraints(self, x, t):
-        """构建MIQP约束"""
+        """buildMIQPconstraint"""
         n_r = self.dim_['n_r']
         n_t = self.dim_['n_t']
         n_c = self.dim_['n_c']
@@ -324,7 +324,7 @@ class RTA:
         lb = -np.inf * np.ones(total_vars)
         ub = np.inf * np.ones(total_vars)
         
-        # 设置变量边界
+        #Set variable boundaries
         lb[:n_r*n_t] = np.zeros(n_r*n_t)
         ub[:n_r*n_t] = np.ones(n_r*n_t)
         lb[n_r*n_t+n_r*n_u:] = np.zeros(n_r*n_t)
@@ -337,33 +337,33 @@ class RTA:
         if global_vars_dict and 'current_llm_response' in global_vars_dict:
             llm_response = global_vars_dict['current_llm_response']
         
-        # 归一化与任务对应化调整后续统一
+        #Normalization and task corresponding adjustment and subsequent unification
         # scaling_factors = self.normalize_task_utilities(x, t, global_vars_dict, llm_response)
         # print(f"[DEBUG-LYP] scaling_factors: {scaling_factors}")
         
         # constraint_idx = 0
-        # === 1. CBF约束 (Control Barrier Functions) ===
+        # === 1. CBFconstraint(Control Barrier Functions) ===
         # print(f"[DEBUG] Adding CBF constraints...")
         # for i in range(n_r):
         #     for j in range(n_t):
         #         task = self.scenario_params_['tasks'][j]
         #         robot_dyn = self.scenario_params_['robot_dyn']
                 
-        #         # 获取缩放后的任务函数值、梯度和时间导数
+        #         #Get scaled task function values, gradients, and time derivatives
         #         task_func_value, task_grad_value, task_time_deriv_value = self.get_scaled_task_values(
         #             x, i, j, t=t, global_vars_dict=global_vars_dict, scaling_factors=scaling_factors
         #         )
                 
-        #         # CBF约束: dot(h) + gamma(h) >= 0
+        #         # CBFconstraint: dot(h) + gamma(h) >= 0
         #         A_ineq[constraint_idx, n_r*n_t+i*n_u:n_r*n_t+(i+1)*n_u] = -task_grad_value @ robot_dyn['g'](x[:, i])
         #         b_ineq[constraint_idx] = (task_grad_value @ robot_dyn['f'](x[:, i]) + 
         #                                  task_time_deriv_value + 
         #                                  self.opt_params_['gamma'](task_func_value))
         #         constraint_idx += 1
         
-        # === 2. 简化的Delta-Alpha约束 (大幅减少的任务切换约束) ===
+        # ===2. SimplifiedDelta-Alphaconstraint(Dramatically reduced task switching constraints) ===
         # print(f"[DEBUG] Adding simplified delta-alpha constraints...")
-        # # 定义关键任务索引：Navigate(0), Pick(2), Place(3) - 最常用的任务
+        # #Define mission-critical indexes:Navigate(0), Pick(2), Place(3)- Most commonly used tasks
         # critical_tasks = [0, 2, 3] if n_t > 3 else list(range(min(n_t, 3)))
         
         # for i in range(n_r):
@@ -379,43 +379,43 @@ class RTA:
         #                 constraint_idx += 1
         #                 constraint_count += 1
         
-        # === 3. CBF slack variable约束 ===
+        # === 3. CBF slack variableconstraint===
         # print(f"[DEBUG] Adding CBF slack constraints...")
         # slack_start_idx = cbf_constraints
         # for i in range(n_r):
         #     for j in range(n_t):
         #         slack_idx = slack_start_idx + i*n_t + j
-        #         if slack_idx < total_ineq:  # 边界检查
+        #         if slack_idx < total_ineq:  #Boundary checking
         #             A_ineq[slack_idx, n_r*n_t+n_r*n_u+i*n_t+j] = -1
         #             b_ineq[slack_idx] = 0
         
-        # === 4. 能力约束 (Feature capability constraints) ===
+        # ===4. Capability constraints(Feature capability constraints) ===
         print(f"[DEBUG] Adding capability constraints...")
         # cap_start_idx = cbf_constraints + cbf_slack_constraints
         cap_start_idx = 0
         for j in range(n_t):
             for c in range(n_c):
                 cap_idx = cap_start_idx + j*n_c + c
-                if cap_idx < total_ineq:  # 边界检查
-                    # F * alpha >= T: 确保分配的机器人具备执行任务j所需的能力c
+                if cap_idx < total_ineq:  #Boundary checking
+                    # F * alpha >= T:Ensure assigned robots are equipped to perform tasksjrequired capabilitiesc
                     for r in range(n_r):
                         A_ineq[cap_idx, r*n_t+j] = -self.scenario_params_['F'][c, r]
                     b_ineq[cap_idx] = -self.scenario_params_['T'][j, c]
         
-        # === 5. 机器人数量约束 (Robot count bounds) ===
+        # === 5. number of robotsconstraint(Robot count bounds) ===
         print(f"[DEBUG] Adding robot count constraints...")
         bound_start_idx = cap_start_idx + n_t*n_c
         for j in range(n_t):
-            # 最大机器人数约束: sum(alpha_rj) <= max_robots_j
+            #Maximum number of robots constraint: sum(alpha_rj) <= max_robots_j
             max_idx = bound_start_idx + j
-            if max_idx < total_ineq:  # 边界检查
+            if max_idx < total_ineq:  #Boundary checking
                 for r in range(n_r):
                     A_ineq[max_idx, r*n_t+j] = 1
                 b_ineq[max_idx] = self.opt_params_['n_r_bounds'][j, 1]
             
-            # 最小机器人数约束: sum(alpha_rj) >= min_robots_j
+            #Minimum number of robots constraint: sum(alpha_rj) >= min_robots_j
             min_idx = bound_start_idx + n_t + j
-            if min_idx < total_ineq:  # 边界检查
+            if min_idx < total_ineq:  #Boundary checking
                 for r in range(n_r):
                     A_ineq[min_idx, r*n_t+j] = -1
                 b_ineq[min_idx] = -self.opt_params_['n_r_bounds'][j, 0]
@@ -424,7 +424,7 @@ class RTA:
         print(f"[DEBUG] Used constraint indices: {capability_constraints + robot_bound_constraints}")
         # print(f"[DEBUG] Used constraint indices: {cbf_constraints + cbf_slack_constraints + capability_constraints + robot_bound_constraints}")
         
-        # 验证约束矩阵一致性
+        #Verify constraint matrix consistency
         expected_total = capability_constraints + robot_bound_constraints
         if expected_total != total_ineq:
             print(f"[ERROR] Constraint matrix size calculation error!")
@@ -436,19 +436,19 @@ class RTA:
             print(f"  Expected total: {expected_total}")
             print(f"  Actual matrix rows: {total_ineq}")
             
-            # 调整矩阵大小以匹配实际需要
+            #Adjust matrix size to match actual needs
             if expected_total > total_ineq:
                 additional_rows = expected_total - total_ineq
                 A_ineq = np.vstack([A_ineq, np.zeros((additional_rows, total_vars))])
                 b_ineq = np.hstack([b_ineq, np.zeros(additional_rows)])
                 print(f"[DEBUG] Extended constraint matrix to {A_ineq.shape}")
             elif expected_total < total_ineq:
-                # 截断矩阵
+                #truncation matrix
                 A_ineq = A_ineq[:expected_total, :]
                 b_ineq = b_ineq[:expected_total]
                 print(f"[DEBUG] Truncated constraint matrix to {A_ineq.shape}")
                 
-        # 检查矩阵有效性
+        #Check matrix validity
         if np.any(np.isnan(A_ineq)) or np.any(np.isinf(A_ineq)):
             print(f"[ERROR] A_ineq contains NaN or Inf values!")
         if np.any(np.isnan(b_ineq)) or np.any(np.isinf(b_ineq)):
@@ -458,7 +458,7 @@ class RTA:
         if np.any(np.isnan(b_eq)) or np.any(np.isinf(b_eq)):
             print(f"[ERROR] b_eq contains NaN or Inf values!")
         
-        # 添加等式约束：每个机器人必须分配到至少一个任务
+        #Add an equality constraint: each robot must be assigned to at least one task
         print(f"[DEBUG] Adding equality constraints (each robot assigned to exactly one task)...")
         for i in range(n_r):
             for j in range(n_t):
@@ -476,12 +476,12 @@ class RTA:
         self.constraints_['ub'] = ub
         
     def build_reduced_constraints(self, x, t):
-        """构建简化约束（固定alpha的QP）"""
+        """Build simplified constraints (fixedalphaofQP）"""
         n_r = self.dim_['n_r']
         n_t = self.dim_['n_t']
         n_u = self.dim_['n_u']
         
-        # 初始化约束矩阵
+        #Initialize constraint matrix
         total_ineq = n_r*n_t + n_r*n_t**2
         total_vars = 2*n_r*n_t + n_r*n_u
         
@@ -496,7 +496,7 @@ class RTA:
         ub[n_r*n_t+n_r*n_u:] = self.opt_params_['delta_max'] * np.ones(n_r*n_t)
         global_vars_dict = self.get_global_vars_dict()
         
-        # 获取LLM响应信息
+        #getLLMresponse message
         llm_response = ""
         if global_vars_dict and 'current_llm_response' in global_vars_dict:
             llm_response = global_vars_dict['current_llm_response']
@@ -509,7 +509,7 @@ class RTA:
                 # CBFs for tasks
                 idx = (i*n_t) + j
                 
-                # 获取缩放后的任务函数值、梯度和时间导数
+                #Get scaled task function values, gradients, and time derivatives
                 task_func_value, task_grad_value, task_time_deriv_value = self.get_scaled_task_values(
                     x, i, j, t=t, global_vars_dict=global_vars_dict, scaling_factors=scaling_factors
                 )
@@ -556,10 +556,10 @@ class RTA:
         self.constraints_['ub'] = ub
         
     def set_scenario_params(self, scenario_params):
-        """更新场景参数"""
+        """Update scene parameters"""
         for field_name, value in scenario_params.items():
             if field_name in self.scenario_params_:
-                assert field_name not in ['F', 'S'], '矩阵F和S无法设置（自动计算）'
+                assert field_name not in ['F', 'S'],'matrixFandSUnable to set (automatically calculated)'
                 self.scenario_params_[field_name] = value
         
         self.evaluate_mappings_and_specializations()
@@ -576,14 +576,14 @@ class RTA:
         return self.scenario_params_['S']
         
     def evaluate_mappings_and_specializations(self):
-        """计算特征到能力(F)和任务到机器人(S)的映射"""
+        """Compute characteristics to capabilities(F)and task to robot(S)mapping"""
         n_c = self.dim_['n_c']
         n_r = self.dim_['n_r']
         
-        # 初始化F矩阵
+        #initializationFmatrix
         self.scenario_params_['F'] = np.zeros((n_c, n_r))
         
-        # 计算F
+        #calculateF
         for k in range(n_c):
             if self.scenario_params_['ws'] is not None and len(self.scenario_params_['ws']) > 0:
                 W_k = np.diag(self.scenario_params_['ws'][k])
@@ -591,23 +591,23 @@ class RTA:
             else:
                 self.scenario_params_['F'][k, :] = ((self.scenario_params_['Hs'][k] @ self.scenario_params_['A']) > 0.999)
         
-        # 计算S
+        #calculateS
         self.scenario_params_['S'] = ((self.scenario_params_['T'] @ self.scenario_params_['F']) > 0.999).astype(float)
         
-        # 构建投影矩阵
+        #Build projection matrix
         self.build_projector()
 
     def build_projector(self):
-        """构建投影矩阵P"""
+        """Build projection matrixP"""
         n_r = self.dim_['n_r']
         n_t = self.dim_['n_t']
         
-        # 初始化P矩阵
+        #initializationPmatrix
         self.P_ = np.zeros((n_t, n_t*n_r))
         for i in range(n_r):
             self.P_[:, i*n_t:(i+1)*n_t] = np.eye(n_t)
         
-        # 根据专业化矩阵更新P
+        #Updated based on specialization matrixP
         for i in range(n_r):
             Si = np.diag(self.scenario_params_['S'][:, i])
             self.P_[:, i*n_t:(i+1)*n_t] = self.P_[:, i*n_t:(i+1)*n_t] - Si @ np.linalg.pinv(Si)
@@ -641,7 +641,7 @@ class RTA:
     
     @staticmethod
     def onec(dim, col_idx):
-        """创建一个特定维度的列向量，只有一个元素为1"""
+        """Create a column vector of a specific dimension with only one element being 1"""
         m = np.zeros(dim)
         m[col_idx] = 1
         return m
